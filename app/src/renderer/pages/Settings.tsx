@@ -1,8 +1,10 @@
 import { useState } from 'react'
+import { useToast } from '@/shell/Toast'
 import { api } from '@/api/client'
 import { useApp } from '@/stores/app'
 import { useTerminal } from '@/stores/terminal'
 import { ProfilePicker } from '@/pages/ProfilePicker'
+import { AwsAccess } from '@/pages/AwsAccess'
 
 export function SettingsPage() {
   const { state, refreshState, toggle } = useApp()
@@ -18,7 +20,14 @@ export function SettingsPage() {
     setMsg(`Profile ${r.value.profile} written. Signing in…`)
     openTerminal(r.value.login)
   }
-  const saveBucket = async () => { await api.post('/api/profile', { scriptBucket: bucket }, 'the script bucket'); await refreshState() }
+  const [savingBucket, setSavingBucket] = useState(false)
+  const saveBucket = async () => {
+    setSavingBucket(true)
+    const r = await api.post('/api/profile', { scriptBucket: bucket }, 'the script bucket')
+    setSavingBucket(false)
+    if (!r.ok) { useToast.getState().fail('save the script bucket', r.fault); return }
+    await refreshState(); useToast.getState().done('Script bucket saved')
+  }
   return (
     <div className="settings">
       <div className="row" style={{ marginBottom: 16 }}>
@@ -32,9 +41,11 @@ export function SettingsPage() {
           {state?.profile && <button onClick={() => openTerminal(`aws sso login --profile ${state.profile}`)}>Sign in (SSO)</button>}
         </div>
         <p className="dim">Profiles come from <code>~/.aws/config</code>. Access keys are never entered in Keel: run <code>aws configure</code> in the terminal instead.</p>
-        <label className="row">Script bucket <input value={bucket} onChange={(e) => setBucket(e.target.value)} placeholder="my-glue-scripts" style={{ width: 260 }} /> <button onClick={() => void saveBucket()}>Save</button></label>
+        <label className="row">Script bucket <input value={bucket} onChange={(e) => setBucket(e.target.value)} placeholder="my-glue-scripts" style={{ width: 260 }} /> <button disabled={savingBucket} onClick={() => void saveBucket()}>{savingBucket ? 'Saving…' : 'Save'}</button></label>
         <p className="dim">Where a deployed job's script goes when it has no <code>ScriptLocation</code> yet: <code>s3://&lt;bucket&gt;/scripts/&lt;job&gt;.py</code>.</p>
       </section>
+
+      <AwsAccess />
 
       <section className="card">
         <h3>Add an IAM Identity Center (SSO) profile</h3>

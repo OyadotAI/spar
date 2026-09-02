@@ -6,6 +6,7 @@ import { NodePanel } from '@/dag/NodePanel'
 import { useAuthoring } from './store'
 import { CodePane } from './CodePane'
 import { TestsPane } from './TestsPane'
+import { LocalRunPane } from './LocalRunPane'
 import { SplitPane } from '@/shell/SplitPane'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
 import { ChatRail } from '@/chat/ChatRail'
@@ -22,7 +23,7 @@ export function AuthoringTab({ job }: { job: string }) {
   const glueJob = useGlue((s) => s.jobs.find((j) => j.name === job))
   const importIt = async () => { await api.post(`/api/jobs/${encodeURIComponent(job)}/import`, {}, `importing ${job}`); await api.post(`/api/jobs/${encodeURIComponent(job)}/lane`, {}, 'the lane'); await load(job); await refresh(job) }
   const createDraft = async () => { await api.post(`/api/jobs/${encodeURIComponent(job)}/lane`, {}, 'the lane'); await api.put(`/api/jobs/${encodeURIComponent(job)}/dag`, { dag: {}, layout: {} }, 'the empty DAG'); await load(job); await refresh(job) }
-  const [pane, setPane] = useState<'code' | 'tests'>('code')
+  const [pane, setPane] = useState<'code' | 'tests' | 'local'>('code')
   const [palette, setPalette] = useState(false)
   useEffect(() => { if (!d?.loaded) void load(job); if (!a?.loaded) void refresh(job) }, [job, d?.loaded, a?.loaded, load, refresh])
   const selected = d?.selection.length === 1 ? d.selection[0] : undefined
@@ -47,6 +48,7 @@ export function AuthoringTab({ job }: { job: string }) {
         <div className="row subtabs" style={{ borderBottom: '1px solid var(--line)', padding: '0 12px', height: 30, background: 'var(--surface)' }}>
           <button className={'tabbtn' + (pane === 'code' ? ' on' : '')} onClick={() => setPane('code')}>Code</button>
           <button className={'tabbtn' + (pane === 'tests' ? ' on' : '')} onClick={() => setPane('tests')}>Tests</button>
+          <button className={'tabbtn' + (pane === 'local' ? ' on' : '')} onClick={() => setPane('local')} title="Run the whole pipeline here, against local samples">Local run</button>
           <span className="faint small">{selNode ? selNode.name : 'whole pipeline'}</span>
           <span className="fill" />
           {a?.message && <span className="dim" style={{ fontSize: 12 }}>{a.message}</span>}
@@ -55,7 +57,8 @@ export function AuthoringTab({ job }: { job: string }) {
         <div className="fill" style={{ minHeight: 0 }}>
           {pane === 'code'
             ? (a?.script ? <CodePane code={a.script} range={range} /> : <div className="faint" style={{ padding: 12 }}>No job.py yet. Add nodes and press Generate, or let the agent build it.</div>)
-            : <TestsPane job={job} node={testNode} />}
+            : pane === 'tests' ? <TestsPane job={job} node={testNode} />
+            : <LocalRunPane job={job} />}
         </div>
       </div>} />
   )

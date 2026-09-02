@@ -25,6 +25,7 @@ public class StateController {
     @GetMapping("/api/state")
     public Map<String, Object> get() {
         Map<String, Object> m = new LinkedHashMap<>(state.asMap());
+        m.put("hasProject", state.hasProject());
         m.put("os", System.getProperty("os.name"));
         m.put("tools", tools.detect());
         for (StateContributor c : contributors) c.contribute(m);

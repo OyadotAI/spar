@@ -44,7 +44,7 @@ class SyncTest {
         AwsClients aws = mock(AwsClients.class);
         when(aws.region()).thenReturn("eu-west-1");
         RecordingEvents events = new RecordingEvents();
-        JobsCache cache = new JobsCache();
+        JobsCache cache = new JobsCache(state, new com.fasterxml.jackson.databind.ObjectMapper());
         Sync sync = new Sync(glue, cache, events, state, aws);
 
         // first pass: two jobs appear

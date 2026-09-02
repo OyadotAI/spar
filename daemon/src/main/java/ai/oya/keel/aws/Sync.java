@@ -49,7 +49,7 @@ public class Sync implements StateController.StateContributor {
     private final Bucket bucket = new Bucket(8, 16);
     private final Set<String> known = ConcurrentHashMap.newKeySet();
     private final Map<String, Instant> due = new ConcurrentHashMap<>();
-    private volatile String profileKey = "";
+    private volatile String profileKey; // null until the first sweep: "no profile seen yet", not "a different profile"
     private volatile boolean throttled;
     private volatile Instant backoffUntil = Instant.EPOCH;
     private volatile int backoffSeconds = 2;
@@ -145,9 +145,15 @@ public class Sync implements StateController.StateContributor {
         if (p == null || p.isBlank()) return false;
         String key = p + "@" + aws.region();
         if (!key.equals(profileKey)) {
+            // Only a *change* of profile invalidates what we hold. The first observation is not a
+            // change, and clearing there would throw away the listing loaded from disk before the
+            // first sweep has anything to replace it with.
+            boolean switched = profileKey != null;
             profileKey = key;
-            known.clear(); due.clear(); cache.clear();
-            firstPass = new CountDownLatch(1);
+            if (switched) {
+                known.clear(); due.clear(); cache.clear();
+                firstPass = new CountDownLatch(1);
+            }
         }
         return events.hasSubscribers() || !cache.filled();
     }

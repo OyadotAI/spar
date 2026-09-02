@@ -39,6 +39,7 @@ public class Watcher {
 
     @PostConstruct
     void start() {
+        if (!state.hasProject()) { log.info("watcher: no project chosen yet"); return; }
         List<Path> roots = new ArrayList<>();
         Path jobs = state.project().resolve("jobs");
         Path worktrees = state.keelDir().resolve("worktrees");

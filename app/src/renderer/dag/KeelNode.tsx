@@ -2,7 +2,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { label, supported } from './schema'
 import { Icon, nodeIcon } from '@/shell/Icon'
 
-export type KeelNodeData = { name: string; type: string; category: 'source' | 'transform' | 'target'; inputs: number }
+export type KeelNodeData = { name: string; type: string; category: 'source' | 'transform' | 'target'; inputs: number; problems?: { level: string; message: string }[] }
 
 export function KeelNode({ data, selected }: NodeProps & { data: KeelNodeData }) {
   return (
@@ -10,6 +10,11 @@ export function KeelNode({ data, selected }: NodeProps & { data: KeelNodeData })
       {data.category !== 'source' && <Handle type="target" position={Position.Left} />}
       <div className="knode-icon"><Icon name={nodeIcon(data.type)} size={16} /></div>
       <div className="knode-text"><div className="knode-name">{data.name}</div><div className="knode-type">{label(data.type)}</div></div>
+      {data.problems && data.problems.length > 0 && (
+        <div className={'knode-badge ' + (data.problems.some((p) => p.level === 'warn') ? 'warn' : 'info')}
+          title={data.problems.map((p) => p.message).join('\n\n')}>
+          <Icon name={data.problems.some((p) => p.level === 'warn') ? 'warn' : 'info'} size={12} />
+        </div>)}
       {data.category !== 'target' && <Handle type="source" position={Position.Right} />}
     </div>
   )

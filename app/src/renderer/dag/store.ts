@@ -6,6 +6,9 @@ import { autoLayout } from './layout'
 
 export type DagNode = { id: string; type: string; name: string; inputs: string[]; category: 'source' | 'transform' | 'target' }
 export type DagEdge = { from: string; to: string }
+
+/** A selector must return the same reference when nothing changed, or React re-renders forever. */
+export const NO_NODES: DagNode[] = []
 export type Raw = Record<string, Record<string, Record<string, unknown>>>
 export type Pos = { x: number; y: number }
 

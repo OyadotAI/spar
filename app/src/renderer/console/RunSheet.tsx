@@ -1,9 +1,11 @@
 import { useState } from 'react'
+import { useEscape } from '@/shell/useEscape'
 
 /** Arguments for a run: `--key value` pairs, prefilled from the run being retried. */
 export function RunSheet({ initial, onRun, onClose }: { initial: Record<string, string>; onRun: (args: Record<string, string>) => void; onClose: () => void }) {
   const [rows, setRows] = useState<{ k: string; v: string }[]>(() => [...Object.entries(initial).map(([k, v]) => ({ k, v })), { k: '', v: '' }])
   const update = (i: number, k: string, v: string) => { const next = rows.slice(); next[i] = { k, v }; if (i === rows.length - 1 && (k || v)) next.push({ k: '', v: '' }); setRows(next) }
+  useEscape(true, onClose)
   const args = Object.fromEntries(rows.filter((r) => r.k.trim()).map((r) => [r.k.trim(), r.v]))
   return (
     <div className="sheet-backdrop" onClick={onClose}>

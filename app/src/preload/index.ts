@@ -18,6 +18,9 @@ const keel = {
   },
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('keel:openExternal', url),
   pickProject: (): Promise<string | null> => ipcRenderer.invoke('keel:pickProject'),
+  checkProject: (dir: string): Promise<{ ok: boolean; why?: string; hint?: string; empty?: boolean; git?: boolean; keel?: boolean }> => ipcRenderer.invoke('keel:checkProject', dir),
+  openProject: (dir: string): Promise<{ ok: boolean; why?: string; hint?: string }> => ipcRenderer.invoke('keel:openProject', dir),
+  recentProjects: (): Promise<string[]> => ipcRenderer.invoke('keel:recentProjects'),
   saveText: (suggested: string, text: string): Promise<string | null> => ipcRenderer.invoke('keel:saveText', suggested, text),
   openText: (): Promise<{ name: string; text: string } | null> => ipcRenderer.invoke('keel:openText'),
 }

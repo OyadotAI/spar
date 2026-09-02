@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ReactFlow, Background, Controls, MiniMap, ReactFlowProvider, useReactFlow, type Node, type Edge, type Connection, type NodeChange, type OnConnect, type IsValidConnection } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
+import { useLint, NO_FINDINGS } from './lint'
 import { useDag, type Pos } from './store'
 import { KeelNode, type KeelNodeData } from './KeelNode'
 import { NODE_W, NODE_H } from './layout'
 import { maxInputs } from './schema'
+import { useCustomTransforms, dynamicTemplate } from './customTransforms'
 import { Icon } from '@/shell/Icon'
 
 const nodeTypes = { keel: KeelNode }
@@ -18,11 +20,15 @@ function Canvas({ job, toolbarOffset }: { job: string; toolbarOffset: number }) 
   const { select, move, connect, remove, add, undo, redo, relayout } = useDag()
   const rf = useReactFlow()
   const [toast, setToast] = useState<string | null>(null)
+  const problems = useLint((s) => s.byJob[job]?.findings ?? NO_FINDINGS)
+  const [showProblems, setShowProblems] = useState(false)
+  useEffect(() => { if (d?.loaded) void useLint.getState().check(job, d.rev) }, [job, d?.rev, d?.loaded])
   const dragging = useRef<Record<string, Pos>>({})
   const nodes = useMemo<Node<KeelNodeData>[]>(() => (d?.nodes ?? []).map((n) => ({
     id: n.id, type: 'keel', position: d?.layout[n.id] ?? { x: 0, y: 0 }, width: NODE_W, height: NODE_H,
-    selected: d?.selection.includes(n.id), data: { name: n.name, type: n.type, category: n.category, inputs: n.inputs.length },
-  })), [d?.nodes, d?.layout, d?.selection])
+    selected: d?.selection.includes(n.id),
+    data: { name: n.name, type: n.type, category: n.category, inputs: n.inputs.length, problems: problems.filter((f) => f.node === n.id) },
+  })), [d?.nodes, d?.layout, d?.selection, problems])
   const edges = useMemo<Edge[]>(() => (d?.edges ?? []).map((e) => ({ id: `${e.from}->${e.to}`, source: e.from, target: e.to, animated: !!d?.selection.some((s) => s === e.from || s === e.to) })), [d?.edges, d?.selection])
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
@@ -44,9 +50,18 @@ function Canvas({ job, toolbarOffset }: { job: string; toolbarOffset: number }) 
   const flash = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500) }
   const onDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault()
-    const type = e.dataTransfer.getData('application/keel-node'); if (!type) return
+    const type = e.dataTransfer.getData('application/keel-node')
+    const customName = e.dataTransfer.getData('application/keel-custom')
+    if (!type && !customName) return
     const p = rf.screenToFlowPosition({ x: e.clientX, y: e.clientY })
-    add(job, type, { x: Math.max(0, Math.round(p.x - NODE_W / 2)), y: Math.max(0, Math.round(p.y - NODE_H / 2)) })
+    const at = { x: Math.max(0, Math.round(p.x - NODE_W / 2)), y: Math.max(0, Math.round(p.y - NODE_H / 2)) }
+    if (customName) {
+      const t = useCustomTransforms.getState().list.find((x) => x.name === customName); if (!t) return
+      const id = add(job, 'DynamicTransform', at)
+      useDag.getState().replaceNode(job, id, 'DynamicTransform', dynamicTemplate(t, t.displayName || t.name))
+      return
+    }
+    add(job, type, at)
   }, [rf, add, job])
   useEffect(() => {
     const off = window.keel.onMenu((cmd) => {
@@ -78,9 +93,26 @@ function Canvas({ job, toolbarOffset }: { job: string; toolbarOffset: number }) 
       <div className="canvas-toolbar row" style={{ left: toolbarOffset }}>
         <button className="quiet" onClick={() => { relayout(job); setTimeout(() => void rf.fitView({ padding: 0.2 }), 50) }} title="⌘⇧L"><Icon name="layout" />Auto-layout</button>
         <button className="quiet" onClick={() => void rf.fitView({ padding: 0.2 })} title="⌘0"><Icon name="fit" />Fit</button>
+        {problems.length > 0 && (
+          <button className={'quiet' + (showProblems ? ' on' : '')} onClick={() => setShowProblems(!showProblems)}
+            title="Traps this DAG holds that no error message will name">
+            <Icon name={problems.some((p) => p.level === 'warn') ? 'warn' : 'info'} />{problems.length} problem{problems.length > 1 ? 's' : ''}
+          </button>)}
         {sel.length > 0 && <button className="quiet danger" onClick={() => remove(job, sel)}><Icon name="trash" />Delete {sel.length > 1 ? `${sel.length} nodes` : ''}</button>}
         {sel.length === 1 && (() => { const n = d?.nodes.find((x) => x.id === sel[0]); return n && n.inputs.length > 0 && maxInputs(n.type) > 0 ? <span className="faint">{n.inputs.length}/{maxInputs(n.type)} inputs</span> : null })()}
       </div>
+      {showProblems && problems.length > 0 && (
+        <div className="problems">
+          {problems.map((f, i) => (
+            <div key={f.rule + i} className="row" style={{ gap: 8, alignItems: 'flex-start', padding: '6px 0', borderTop: i ? '1px solid var(--line)' : undefined }}>
+              <Icon name={f.level === 'warn' ? 'warn' : 'info'} size={13} style={{ color: f.level === 'warn' ? 'var(--warn)' : 'var(--faint)', marginTop: 2 }} />
+              <div className="fill">
+                <div>{f.message}</div>
+                <div className="dim small" style={{ marginTop: 2 }}>{f.fix}</div>
+              </div>
+              {f.node && <button className="quiet" onClick={() => select(job, [f.node!])}>Show</button>}
+            </div>))}
+        </div>)}
       {d?.conflict && <div className="canvas-banner"><span>{d.conflict}</span><button onClick={() => void useDag.getState().load(job)}>Reload</button></div>}
       {toast && <div className="canvas-toast">{toast}</div>}
       {d && d.nodes.length === 0 && <div className="canvas-empty">Drag a node from the palette, or describe the pipeline to the agent on the right.</div>}

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
+import { Bookmarks } from './Bookmarks'
 import { api } from '@/api/client'
 import { useGlue } from '@/stores/glue'
 import { useDag } from '@/dag/store'
@@ -70,12 +71,18 @@ export function JobDetails({ job }: { job: string }) {
       <div className="grid">
         <Toggle label="Automatically scale the number of workers" on={bool('--enable-auto-scaling')} set={(v) => setArg('--enable-auto-scaling', v ? 'true' : undefined)} />
         <Toggle label="Job bookmark" on={arg('--job-bookmark-option') !== 'job-bookmark-disable'} set={(v) => setArg('--job-bookmark-option', v ? 'job-bookmark-enable' : 'job-bookmark-disable')} />
-        <Toggle label="Continuous logging" on={bool('--enable-continuous-cloudwatch-log')} set={(v) => setArg('--enable-continuous-cloudwatch-log', v ? 'true' : undefined)} />
-        <Toggle label="Job metrics" on={bool('--enable-metrics')} set={(v) => setArg('--enable-metrics', v ? 'true' : undefined)} />
+        <Toggle label="Continuous logging" on={bool('--enable-continuous-cloudwatch-log')} set={(v) => setArg('--enable-continuous-cloudwatch-log', v ? 'true' : undefined)}
+          note={String(def.GlueVersion ?? '') >= '5.0' ? 'Glue 5.0 removed continuous logging; this flag does nothing here.' : undefined} />
+        <Toggle label="Job metrics" on={bool('--enable-metrics')} set={(v) => setArg('--enable-metrics', v ? 'true' : undefined)}
+          note={bool('--enable-metrics') ? undefined : 'The Metrics tab is empty without this. The job role also needs cloudwatch:PutMetricData.'} />
         <Toggle label="Observability metrics" on={bool('--enable-observability-metrics')} set={(v) => setArg('--enable-observability-metrics', v ? 'true' : undefined)} />
-        <Toggle label="Spark UI (event logs)" on={bool('--enable-spark-ui')} set={(v) => setArg('--enable-spark-ui', v ? 'true' : undefined)} />
+        <Toggle label="Spark UI (event logs)" on={bool('--enable-spark-ui')} set={(v) => setArg('--enable-spark-ui', v ? 'true' : undefined)}
+          note={bool('--enable-spark-ui') && !arg('--spark-event-logs-path') ? 'Also needs a Spark UI logs path, below.' : undefined} />
         <Toggle label="Job insights" on={bool('--enable-job-insights')} set={(v) => setArg('--enable-job-insights', v ? 'true' : undefined)} />
         <Toggle label="Use Data Catalog as the Hive metastore" on={bool('--enable-glue-datacatalog')} set={(v) => setArg('--enable-glue-datacatalog', v ? 'true' : undefined)} />
+      </div>
+      <div className="card" style={{ margin: '10px 0' }}>
+        <Bookmarks job={job} enabled={arg('--job-bookmark-option') !== 'job-bookmark-disable'} />
       </div>
       <h2>Advanced properties</h2>
       <div className="grid">
@@ -100,19 +107,25 @@ export function JobDetails({ job }: { job: string }) {
   )
 }
 
-function Toggle({ label, on, set }: { label: string; on: boolean; set: (v: boolean) => void }) {
-  return <label className="row" style={{ flexDirection: 'row', alignItems: 'center', gap: 8, color: 'var(--text)' }}><input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}</label>
+function Toggle({ label, on, set, note }: { label: string; on: boolean; set: (v: boolean) => void; note?: string }) {
+  return (
+    <label className="col" style={{ gap: 2 }}>
+      <span className="row" style={{ alignItems: 'center', gap: 8, color: 'var(--text)' }}>
+        <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} />{label}
+      </span>
+      {note && <span className="faint small" style={{ paddingLeft: 22 }}>{note}</span>}
+    </label>)
 }
 
 function KV({ value, onChange }: { value: Record<string, string>; onChange: (v: Record<string, string>) => void }) {
   const rows = Object.entries(value)
   return (
     <div className="kv">
-      {rows.map(([k, v]) => (<>
-        <input key={k + '.k'} className="mono" defaultValue={k} onBlur={(e) => { if (e.target.value !== k) { const n = { ...value }; delete n[k]; if (e.target.value) n[e.target.value] = v; onChange(n) } }} />
-        <input key={k + '.v'} className="mono" defaultValue={v} onBlur={(e) => { if (e.target.value !== v) onChange({ ...value, [k]: e.target.value }) }} />
-        <button key={k + '.x'} className="quiet" onClick={() => { const n = { ...value }; delete n[k]; onChange(n) }}><Icon name="x" size={12} /></button>
-      </>))}
+      {rows.map(([k, v]) => (<Fragment key={k}>
+        <input className="mono" defaultValue={k} onBlur={(e) => { if (e.target.value !== k) { const n = { ...value }; delete n[k]; if (e.target.value) n[e.target.value] = v; onChange(n) } }} />
+        <input className="mono" defaultValue={v} onBlur={(e) => { if (e.target.value !== v) onChange({ ...value, [k]: e.target.value }) }} />
+        <button className="quiet" onClick={() => { const n = { ...value }; delete n[k]; onChange(n) }}><Icon name="x" size={12} /></button>
+      </Fragment>))}
       <button className="quiet" style={{ gridColumn: '1 / -1', justifySelf: 'start' }} onClick={() => onChange({ ...value, [`--param${rows.length + 1}`]: '' })}><Icon name="plus" />parameter</button>
     </div>
   )

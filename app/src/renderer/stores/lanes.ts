@@ -1,7 +1,8 @@
 import { create } from 'zustand'
+import { useToast } from '@/shell/Toast'
 import { api } from '@/api/client'
 
-export type Tab = 'console' | 'authoring' | 'script' | 'details' | 'schedules' | 'dq'
+export type Tab = 'console' | 'authoring' | 'script' | 'details' | 'schedules' | 'dq' | 'upgrade'
 export type Lane = { id: string; title: string; tab: Tab; worktree?: string }
 
 type Lanes = {
@@ -30,9 +31,14 @@ export const useLanes = create<Lanes>((set, get) => ({
       set({ open: [...open, { id: name, title: name, tab: 'console' }] })
       // a local folder + its own branch, made once; the daemon is idempotent about both
       void (async () => {
-        await api.post(`/api/jobs/${encodeURIComponent(name)}/import`, {}, `importing ${name}`)
+        // a job that already has a local folder needs no AWS round trip; only a new tab for a
+        // remote job does, and even then a failure is not fatal — the lane is what matters
+        const local = await api.get<{ name: string }[]>('/api/jobs', 'the local jobs')
+        const known = local.ok && local.value.some((l) => l.name === name)
+        if (!known) await api.post(`/api/jobs/${encodeURIComponent(name)}/import`, {}, `importing ${name}`)
         const r = await api.post<{ path: string; branch: string }>(`/api/jobs/${encodeURIComponent(name)}/lane`, {}, `the lane for ${name}`)
         if (r.ok) get().setWorktree(name, r.value.path)
+        else useToast.getState().fail(`open ${name}`, r.fault)
       })()
     }
     set({ active: name })

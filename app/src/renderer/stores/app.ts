@@ -24,7 +24,7 @@ export const useApp = create<AppStore>((set, get) => ({
   daemonDied: (reason) => { setBase(0); set({ port: 0, connection: 'dead', deathReason: reason }) },
   refreshState: async () => {
     const r = await api.get<StateReply>('/api/state', 'the daemon state')
-    if (r.ok) set({ state: r.value, stateFault: undefined, project: r.value.project })
+    if (r.ok) set({ state: r.value, stateFault: undefined, project: r.value.project ?? '' })
     else set({ stateFault: r.fault })
   },
   toggle: (k, v) => set({ [k]: v ?? !get()[k] } as Partial<AppStore>),

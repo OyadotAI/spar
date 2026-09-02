@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, type Fault } from '@/api/client'
 import { onEvent } from '@/events'
 import { Icon } from '@/shell/Icon'
+import { confirm } from '@/shell/Confirm'
+import { tell } from '@/shell/Toast'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
 import type { Schedule } from '@/wire/types'
 
@@ -29,7 +31,7 @@ export function Schedules({ job }: { job: string }) {
     setAdding(false); setName(''); setDesc(''); void load()
   }
   const act = async (s: Schedule, what: 'start' | 'stop' | 'delete') => {
-    if (what === 'delete') { if (!window.confirm(`Delete the schedule "${s.name}"?`)) return; await api.del(`/api/glue/schedules/${encodeURIComponent(s.name)}`, 'deleting the schedule') }
+    if (what === 'delete') { if (!await confirm({ title: `Delete the schedule "${s.name}"?`, danger: true, confirmLabel: 'Delete', body: "Deleting it stops this job running on that cron. The job itself stays." })) return; await api.del(`/api/glue/schedules/${encodeURIComponent(s.name)}`, 'deleting the schedule') }
     else await api.post(`/api/glue/schedules/${encodeURIComponent(s.name)}/${what}`, {}, `${what} schedule`)
     void load()
   }

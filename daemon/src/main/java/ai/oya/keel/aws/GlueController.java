@@ -35,11 +35,15 @@ public class GlueController {
 
     @GetMapping("/api/glue/jobs")
     public Map<String, Object> jobs() {
-        if (!cache.filled()) sync.awaitFirst(20);
+        // With last session's listing on disk there is something to draw at once, so the wait is
+        // short and the rows are marked as of when they were true rather than withheld.
+        if (!cache.filled()) sync.awaitFirst(cache.stale() ? 3 : 20);
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("refreshedAt", cache.refreshedAt());
         m.put("jobs", cache.all().stream().map(j -> j.withLocal(Map.of("imported", project.exists(j.name()), "lane", lanes.exists(j.name())))).toList());
-        if (sync.lastError() != null && !cache.filled()) throw new ApiError(502, sync.lastError());
+        m.put("stale", cache.stale());
+        m.put("offline", sync.lastError());
+        if (sync.lastError() != null && cache.all().isEmpty()) throw new ApiError(502, sync.lastError());
         return m;
     }
 
@@ -84,6 +88,16 @@ public class GlueController {
     }
 
     /** SSE: `streams`, then `line` per event, then `end {reason}`. Stops 30s after the run ends or when the client leaves. */
+    @GetMapping("/api/glue/jobs/{name}/runs/{id}/insights")
+    public Map<String, Object> insights(@PathVariable String name, @PathVariable String id) {
+        Map<String, List<LogsService.Line>> in = logs.insights(id);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.putAll(in);
+        boolean any = in.values().stream().anyMatch(l -> !l.isEmpty());
+        if (!any) out.put("note", "No job-insights streams for this run. Turn on \"Job insights\" (--enable-job-insights) on the Job details tab; insights are written when a run fails.");
+        return out;
+    }
+
     @GetMapping("/api/glue/jobs/{name}/runs/{id}/logs")
     public SseEmitter follow(@PathVariable String name, @PathVariable String id, @RequestParam(defaultValue = "all") String group) {
         SseEmitter e = new SseEmitter(0L);

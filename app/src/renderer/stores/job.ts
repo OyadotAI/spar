@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useToast } from '@/shell/Toast'
 import { api, type Fault } from '@/api/client'
 import { subscribe, type Sse } from '@/api/sse'
 import { onEvent } from '@/events'
@@ -62,17 +63,19 @@ export const useJob = create<Store>((set, get) => ({
     patch(set, name, { busy: 'starting' })
     const r = await api.post<{ runId: string }>(`/api/glue/jobs/${encodeURIComponent(name)}/runs`, { arguments: args, retryOf }, `starting ${name}`)
     patch(set, name, { busy: undefined })
-    if (!r.ok) return r.fault
+    if (!r.ok) { useToast.getState().fail(`start ${name}`, r.fault); return r.fault }
     await get().refreshRuns(name)
     get().select(name, r.value.runId)
+    useToast.getState().done(`${name} started`, r.value.runId.slice(3, 19) + '…')
     return null
   },
   stop: async (name, runId) => {
     patch(set, name, { busy: 'stopping' })
     const r = await api.post<{ ok: boolean; errors: string[] }>(`/api/glue/jobs/${encodeURIComponent(name)}/runs/${runId}/stop`, {}, `stopping ${runId}`)
     patch(set, name, { busy: undefined })
-    if (!r.ok) return r.fault
-    if (!r.value.ok) return { what: `stopping ${runId}`, why: r.value.errors.join('; ') }
+    if (!r.ok) { useToast.getState().fail(`stop ${name}`, r.fault); return r.fault }
+    if (!r.value.ok) { const f = { what: `stopping ${runId}`, why: r.value.errors.join('; ') }; useToast.getState().fail(`stop ${name}`, f); return f }
+    useToast.getState().done(`Stopping ${name}`)
     return null
   },
   patchRun: (name, run) => patch(set, name, (j) => {

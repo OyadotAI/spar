@@ -27,9 +27,10 @@ public class Monitor {
         int succeeded = 0, failed = 0, running = 0, stopped = 0, total = 0;
         double dpuHours = 0, execSeconds = 0;
         List<Map<String, Object>> recent = new ArrayList<>();
+        int perJob = hours <= 24 ? 25 : hours <= 168 ? 75 : 200;
         for (String job : cache.names()) {
             List<JobRun> runs;
-            try { runs = glue.runs(job, 25, null).jobRuns(); } catch (RuntimeException e) { continue; }
+            try { runs = glue.runs(job, perJob, null).jobRuns(); } catch (RuntimeException e) { continue; }
             for (JobRun r : runs) {
                 if (r.startedOn() == null || r.startedOn().isBefore(since)) continue;
                 total++;
@@ -45,18 +46,51 @@ public class Monitor {
                 execSeconds += r.executionTime() == null ? 0 : r.executionTime();
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("job", job); m.put("id", r.id()); m.put("state", s); m.put("startedOn", r.startedOn().toString());
+                m.put("completedOn", r.completedOn() == null ? null : r.completedOn().toString());
                 m.put("executionTime", r.executionTime()); m.put("dpuHours", h); m.put("errorMessage", r.errorMessage());
+                m.put("workerType", r.workerTypeAsString() == null ? "—" : r.workerTypeAsString());
+                m.put("numberOfWorkers", r.numberOfWorkers());
+                m.put("jobType", jobType(cache.get(job)));
+                m.put("triggerName", r.triggerName());
                 recent.add(m);
             }
         }
         recent.sort((a, b) -> String.valueOf(b.get("startedOn")).compareTo(String.valueOf(a.get("startedOn"))));
+        // the breakdowns Glue Studio's dashboard draws: by job type, by worker type, and by day
+        Map<String, Map<String, Integer>> byType = new java.util.LinkedHashMap<>(), byWorker = new java.util.LinkedHashMap<>(), byDay = new java.util.TreeMap<>();
+        for (Map<String, Object> r : recent) {
+            String st = bucket(String.valueOf(r.get("state")));
+            byType.computeIfAbsent(String.valueOf(r.get("jobType")), k -> new java.util.LinkedHashMap<>()).merge(st, 1, Integer::sum);
+            byWorker.computeIfAbsent(String.valueOf(r.get("workerType")), k -> new java.util.LinkedHashMap<>()).merge(st, 1, Integer::sum);
+            byDay.computeIfAbsent(String.valueOf(r.get("startedOn")).substring(0, 10), k -> new java.util.LinkedHashMap<>()).merge(st, 1, Integer::sum);
+        }
         Map<String, Object> out = new LinkedHashMap<>();
+        out.put("byType", byType); out.put("byWorker", byWorker); out.put("byDay", byDay);
         out.put("hours", hours); out.put("total", total); out.put("succeeded", succeeded); out.put("failed", failed); out.put("running", running); out.put("stopped", stopped);
         out.put("dpuHours", Math.round(dpuHours * 100) / 100.0); out.put("executionHours", Math.round(execSeconds / 36) / 100.0);
-        out.put("recent", recent.size() > 100 ? recent.subList(0, 100) : recent);
+        out.put("recent", recent.size() > 500 ? recent.subList(0, 500) : recent);
         out.put("at", Instant.now().toString());
         last = out; at = Instant.now();
         return out;
+    }
+
+    static String bucket(String state) {
+        return switch (state) {
+            case "SUCCEEDED" -> "succeeded";
+            case "FAILED", "ERROR", "TIMEOUT" -> "failed";
+            case "STOPPED", "STOPPING", "EXPIRED" -> "stopped";
+            default -> "running";
+        };
+    }
+
+    static String jobType(JobSummary j) {
+        if (j == null || j.commandName() == null) return "Spark";
+        return switch (j.commandName()) {
+            case "gluestreaming" -> "Streaming";
+            case "pythonshell" -> "Python shell";
+            case "glueray" -> "Ray";
+            default -> "Spark";
+        };
     }
 
     /** What Glue bills: DPU seconds when it reports them (flex/autoscaling), else workers × DPU factor × execution time. */

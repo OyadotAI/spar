@@ -15,6 +15,7 @@ import { JobDetails } from '@/job/JobDetails'
 import { Schedules } from '@/job/Schedules'
 import { ScriptTab } from '@/job/ScriptTab'
 import { DataQualityTab } from '@/job/DataQualityTab'
+import { UpgradeTab } from '@/job/UpgradeTab'
 
 type Panel = 'runs' | 'changes' | null
 
@@ -44,12 +45,13 @@ export function JobPage({ lane }: { lane: Lane }) {
     : lane.tab === 'details' ? <JobDetails job={lane.id} />
     : lane.tab === 'schedules' ? <Schedules job={lane.id} />
     : lane.tab === 'dq' ? <DataQualityTab job={lane.id} />
+    : lane.tab === 'upgrade' ? <UpgradeTab job={lane.id} />
     : <AuthoringTab job={lane.id} />
   return (
     <div className="col" style={{ height: '100%' }}>
       <div className="toolbar">
         <div className="row" style={{ gap: 0 }}>
-          {([['authoring', 'Visual'], ['script', 'Script'], ['details', 'Job details'], ['console', 'Runs'], ['dq', 'Data quality'], ['schedules', 'Schedules']] as const).map(([t, label]) => (
+          {([['authoring', 'Visual'], ['script', 'Script'], ['details', 'Job details'], ['console', 'Runs'], ['dq', 'Data quality'], ['schedules', 'Schedules'], ['upgrade', 'Upgrade']] as const).map(([t, label]) => (
             <button key={t} className={'tabbtn' + (lane.tab === t ? ' on' : '')} onClick={() => setTab(lane.id, t)}>{label}</button>))}
         </div>
         <GitBar job={lane.id} />

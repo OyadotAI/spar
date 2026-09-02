@@ -52,6 +52,16 @@ daemon responses), never written from memory.
 - Not yet exercised: anything that needs an AWS profile (this machine has none), Windows/Linux
   runs, `electron-builder` installers, the EventBridge push, Deploy against a real account.
 
+## Glue Studio parity
+`docs/glue-studio-inventory.md` is the screen-by-screen comparison with the console and the list of
+what is deliberately absent. Two rules learned from a live account, both now enforced in code:
+- **Deploy must win the race with Glue's regeneration.** A job with `CodeGenConfigurationNodes`
+  gets its `ScriptLocation` rewritten by Glue after `UpdateJob`, later than five seconds. `Deployer`
+  settles, writes, verifies, and reports `scriptIsOurs`; `scriptMode` (both / visual / tested) is
+  the honest choice between a visual console and tested code.
+- **An empty Logs, Metrics or Insights pane is a role finding.** `RoleCheck` names the missing
+  permission, shows the policy, and attaches it on one explicit click.
+
 ## Deferred on purpose
 MCP tools for AWS beyond `ask_user` (the agent uses the `aws` CLI under the hook); rewind;
 multi-writer lane claims; SDK-model marshalling instead of `aws glue … --cli-input-json`; cycle

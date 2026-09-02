@@ -13,7 +13,9 @@ export function installMenu(win: () => BrowserWindow | null): void {
         { type: 'separator' },
         { label: 'Settings…', accelerator: 'CmdOrCtrl+,', click: send('settings') },
         { type: 'separator' },
-        mac ? { role: 'close' } : { role: 'quit' },
+        // ⌘W closes the *tab*, as in every other tabbed editor; the window keeps ⇧⌘W.
+        { label: 'Close Tab', accelerator: 'CmdOrCtrl+W', click: send('close-tab') },
+        mac ? { role: 'close', accelerator: 'Shift+CmdOrCtrl+W' } : { role: 'quit' },
       ],
     },
     {

@@ -34,6 +34,21 @@ public class JobsController {
     @GetMapping("/api/jobs/{name}")
     public Map<String, Object> read(@PathVariable String name) { return project.read(name); }
 
+    /**
+     * The static check on the DAG. It runs with no AWS and no Spark, so the canvas can show the
+     * silent traps — a bookmarked join writing NULLs, a mapping dropping a column — while they are
+     * still being drawn rather than after a run that succeeded and produced the wrong thing.
+     */
+    @GetMapping("/api/jobs/{name}/lint")
+    public Map<String, Object> lint(@PathVariable String name) {
+        JsonNode dag = project.readJson(project.dir(name).resolve("dag.json"));
+        if (dag == null) throw ai.oya.keel.ApiError.notFound("no dag.json for " + name);
+        JsonNode job = project.readJson(project.dir(name).resolve("job.json"));
+        List<Map<String, Object>> findings = new java.util.ArrayList<>();
+        for (ai.oya.keel.codegen.Lint.Finding f : ai.oya.keel.codegen.Lint.check(dag, job)) findings.add(f.asMap());
+        return Map.of("rev", project.rev(name), "findings", findings);
+    }
+
     public record DagBody(JsonNode dag, JsonNode layout, Long rev) {}
 
     @PutMapping("/api/jobs/{name}/dag")

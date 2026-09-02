@@ -7,9 +7,11 @@ import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.cloudtrail.CloudTrailClient;
+import software.amazon.awssdk.services.cloudwatch.CloudWatchClient;
 import software.amazon.awssdk.services.cloudwatchlogs.CloudWatchLogsClient;
 import software.amazon.awssdk.services.eventbridge.EventBridgeClient;
 import software.amazon.awssdk.services.glue.GlueClient;
+import software.amazon.awssdk.services.iam.IamClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.sqs.SqsClient;
 import software.amazon.awssdk.services.sts.StsClient;
@@ -25,8 +27,10 @@ public class AwsClients {
     private String key;
     private GlueClient glue;
     private CloudWatchLogsClient logs;
+    private CloudWatchClient cw;
     private S3Client s3;
     private StsClient sts;
+    private IamClient iam;
     private SqsClient sqs;
     private EventBridgeClient events;
     private CloudTrailClient trail;
@@ -35,8 +39,10 @@ public class AwsClients {
 
     public synchronized GlueClient glue() { ensure(); return glue; }
     public synchronized CloudWatchLogsClient logs() { ensure(); return logs; }
+    public synchronized CloudWatchClient cloudWatch() { ensure(); return cw; }
     public synchronized S3Client s3() { ensure(); return s3; }
     public synchronized StsClient sts() { ensure(); return sts; }
+    public synchronized IamClient iam() { ensure(); return iam; }
     public synchronized SqsClient sqs() { ensure(); return sqs; }
     public synchronized EventBridgeClient eventBridge() { ensure(); return events; }
     public synchronized CloudTrailClient cloudTrail() { ensure(); return trail; }
@@ -65,8 +71,10 @@ public class AwsClients {
         Region r = Region.of(region());
         glue = GlueClient.builder().credentialsProvider(creds).region(r).build();
         logs = CloudWatchLogsClient.builder().credentialsProvider(creds).region(r).build();
+        cw = CloudWatchClient.builder().credentialsProvider(creds).region(r).build();
         s3 = S3Client.builder().credentialsProvider(creds).region(r).build();
         sts = StsClient.builder().credentialsProvider(creds).region(r).build();
+        iam = IamClient.builder().credentialsProvider(creds).region(software.amazon.awssdk.regions.Region.AWS_GLOBAL).build();
         sqs = SqsClient.builder().credentialsProvider(creds).region(r).build();
         events = EventBridgeClient.builder().credentialsProvider(creds).region(r).build();
         trail = CloudTrailClient.builder().credentialsProvider(creds).region(r).build();
@@ -74,9 +82,9 @@ public class AwsClients {
     }
 
     private void close() {
-        for (AutoCloseable c : new AutoCloseable[] {glue, logs, s3, sts, sqs, events, trail}) {
+        for (AutoCloseable c : new AutoCloseable[] {glue, logs, cw, s3, sts, iam, sqs, events, trail}) {
             try { if (c != null) c.close(); } catch (Exception ignored) { /* closing is best effort */ }
         }
-        glue = null; logs = null; s3 = null; sts = null; sqs = null; events = null; trail = null;
+        glue = null; logs = null; cw = null; s3 = null; sts = null; iam = null; sqs = null; events = null; trail = null;
     }
 }

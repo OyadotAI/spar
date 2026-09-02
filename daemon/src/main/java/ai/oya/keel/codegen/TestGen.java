@@ -73,10 +73,10 @@ public final class TestGen {
 
     static String rows(Dag.Node n) { return rows(n, null); }
 
-    static boolean isNumeric(String t) { String x = t.toLowerCase(); return x.contains("int") || x.contains("double") || x.contains("float") || x.contains("decimal") || x.equals("long"); }
+    public static boolean isNumeric(String t) { String x = t.toLowerCase(); return x.contains("int") || x.contains("double") || x.contains("float") || x.contains("decimal") || x.equals("long"); }
 
     /** column → type, inferred down the DAG; `{id:int, value:string}` when nothing is known. */
-    static Map<String, String> columns(Dag.Node n, Dag dag, java.util.Set<String> seen) {
+    public static Map<String, String> columns(Dag.Node n, Dag dag, java.util.Set<String> seen) {
         Map<String, String> out = new LinkedHashMap<>();
         for (JsonNode s : n.body().path("OutputSchemas")) for (JsonNode c : s.path("Columns")) out.put(c.path("Name").asText(), c.path("Type").asText("string"));
         if (!out.isEmpty() || dag == null || !seen.add(n.id())) { if (out.isEmpty()) { out.put("id", "int"); out.put("value", "string"); } return out; }
@@ -99,7 +99,7 @@ public final class TestGen {
     }
 
     /** column → constant from every Filter's EQ / IN / CONTAINS rows: the value a sample row should carry. */
-    static Map<String, String> hints(Dag dag) {
+    public static Map<String, String> hints(Dag dag) {
         Map<String, String> out = new LinkedHashMap<>();
         if (dag == null) return out;
         for (Dag.Node n : dag.nodes.values()) {

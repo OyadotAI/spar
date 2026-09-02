@@ -39,12 +39,38 @@ public class LogsService {
                     final String token = next;
                     DescribeLogStreamsResponse r = aws.logs().describeLogStreams(b ->
                             b.logGroupName(group).logStreamNamePrefix(runId).nextToken(token));
-                    r.logStreams().forEach(s -> { if (!s.logStreamName().endsWith("-progress-bar")) out.add(new StreamRef(group, s.logStreamName())); });
+                    r.logStreams().forEach(s -> {
+                        String n = s.logStreamName();
+                        if (n.endsWith("-progress-bar")) return;
+                        // insights streams are read on their own tab, not mixed into the console
+                        if (n.contains("job-insights-rca-driver") || n.contains("job-insights-rule-driver")) return;
+                        out.add(new StreamRef(group, n));
+                    });
                     next = r.nextToken();
                 } while (next != null);
             } catch (ResourceNotFoundException e) {
                 // this account has no such group (older Glue, or a security configuration renamed it)
             }
+        }
+        return out;
+    }
+
+    /** Glue's job-insights streams for a run: the consolidated root cause, and the rule-based guidance. */
+    public Map<String, List<Line>> insights(String runId) {
+        Map<String, List<Line>> out = new java.util.LinkedHashMap<>();
+        for (String suffix : List.of("job-insights-rca-driver", "job-insights-rule-driver")) {
+            List<Line> lines = new ArrayList<>();
+            for (String group : List.of("/aws-glue/jobs/error", "/aws-glue/jobs/logs-v2")) {
+                try {
+                    var r = aws.logs().describeLogStreams(b -> b.logGroupName(group).logStreamNamePrefix(runId));
+                    for (var st : r.logStreams()) {
+                        if (!st.logStreamName().contains(suffix)) continue;
+                        var ev = aws.logs().getLogEvents(b -> b.logGroupName(group).logStreamName(st.logStreamName()).limit(500).startFromHead(true));
+                        for (var e : ev.events()) lines.add(new Line(e.timestamp(), kind(group), st.logStreamName(), e.message()));
+                    }
+                } catch (ResourceNotFoundException ignored) { }
+            }
+            out.put(suffix.contains("rca") ? "rootCause" : "guidance", lines);
         }
         return out;
     }

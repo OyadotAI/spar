@@ -7,7 +7,7 @@ export function setBase(port: number): void { base = port ? `http://127.0.0.1:${
 export function baseUrl(): string { return base }
 export function wsUrl(path: string): string { return base.replace(/^http/, 'ws') + path }
 
-async function call<T>(method: string, path: string, body: unknown, what: string, timeoutMs = 90_000): Promise<Result<T>> {
+async function call<T>(method: string, path: string, body: unknown, what: string, timeoutMs: number = 90_000): Promise<Result<T>> {
   if (!base) return { ok: false, fault: { what, why: 'the daemon is not running yet' } }
   const ctl = new AbortController()
   const t = setTimeout(() => ctl.abort(), timeoutMs)
@@ -31,9 +31,10 @@ async function call<T>(method: string, path: string, body: unknown, what: string
   } finally { clearTimeout(t) }
 }
 
+/** Deploy, preview and session statements outlive the default ceiling, so those call sites pass their own. */
 export const api = {
-  get: <T>(path: string, what: string) => call<T>('GET', path, undefined, what),
-  post: <T>(path: string, body: unknown, what: string) => call<T>('POST', path, body ?? {}, what),
-  put: <T>(path: string, body: unknown, what: string) => call<T>('PUT', path, body, what),
-  del: <T>(path: string, what: string) => call<T>('DELETE', path, undefined, what),
+  get: <T>(path: string, what: string, timeoutMs?: number) => call<T>('GET', path, undefined, what, timeoutMs),
+  post: <T>(path: string, body: unknown, what: string, timeoutMs?: number) => call<T>('POST', path, body ?? {}, what, timeoutMs),
+  put: <T>(path: string, body: unknown, what: string, timeoutMs?: number) => call<T>('PUT', path, body, what, timeoutMs),
+  del: <T>(path: string, what: string, timeoutMs?: number) => call<T>('DELETE', path, undefined, what, timeoutMs),
 }

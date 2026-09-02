@@ -5,6 +5,8 @@ import { useDag } from './store'
 import { fields, label, maxInputs, template, type Field } from './schema'
 import { CATALOG } from './catalog'
 import { S3Browser, CatalogPicker } from './Pickers'
+import { useCustomTransforms } from './customTransforms'
+import { useToast } from '@/shell/Toast'
 
 export function Inspector({ job }: { job: string }) {
   const d = useDag((s) => s.jobs[job])
@@ -46,11 +48,12 @@ export function Inspector({ job }: { job: string }) {
           {node.inputs.map((i) => { const n = d.nodes.find((x) => x.id === i); return (
             <div key={i} className="row" style={{ fontSize: 12, marginBottom: 2 }}><span className="fill">{n?.name ?? i}</span><button className="quiet" onClick={() => disconnect(job, i, id)} title="disconnect">✕</button></div>) })}
           {node.inputs.length < maxInputs(node.type) && (
-            <select value="" onChange={(e) => { if (e.target.value) { const why = connect(job, e.target.value, id); if (why) window.alert(why) } }}>
+            <select value="" onChange={(e) => { if (e.target.value) { const why = connect(job, e.target.value, id); if (why) useToast.getState().push({ kind: 'bad', title: 'Cannot connect these nodes', detail: why }) } }}>
               <option value="">+ add parent…</option>
               {d.nodes.filter((n) => n.id !== id && n.category !== 'target' && !node.inputs.includes(n.id)).map((n) => <option key={n.id} value={n.id}>{n.name}</option>)}
             </select>)}
         </div>)}
+      {node.type === 'DynamicTransform' && <DynamicParams job={job} id={id} body={body} />}
       {schema && /Catalog/.test(node.type) && (
         <div className="insp-section"><label className="insp-label">Data Catalog table</label>
           <CatalogPicker database={String(body.Database ?? '')} table={String(body.Table ?? '')} onChange={(db, t, cols) => { setField(job, id, 'Database', db); setField(job, id, 'Table', t); if (cols?.length && node.category === 'source') setField(job, id, 'OutputSchemas', [{ Columns: cols }]) }} />
@@ -187,6 +190,45 @@ export function JsonEditor({ value, onCommit }: { value: unknown; onCommit: (v: 
 
 /** CodeMirror's theme follows the OS, like the rest of the window. */
 export function cmTheme(): 'dark' | 'light' { return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light' }
+
+/** A custom visual transform's own form, built from the JSON config beside it in the assets bucket. */
+function DynamicParams({ job, id, body }: { job: string; id: string; body: Record<string, unknown> }) {
+  const custom = useCustomTransforms()
+  const setField = useDag((s) => s.setField)
+  useEffect(() => { if (!custom.loaded) void custom.load() }, [custom])
+  const fn = String(body.FunctionName ?? body.TransformName ?? '')
+  const t = custom.list.find((x) => x.functionName === fn || x.name === fn)
+  const params = (body.Parameters as { Name: string; Type?: string; Value?: string[]; ListType?: string }[] | undefined) ?? []
+  const setParam = (name: string, value: string[], type = 'str') => {
+    const next = params.filter((p) => p.Name !== name)
+    if (value.length && value.some((v) => v !== '')) next.push({ Name: name, Type: type, Value: value })
+    setField(job, id, 'Parameters', next)
+  }
+  if (!t) return (
+    <div className="insp-section">
+      <div className="insp-label">Custom transform</div>
+      <div className="faint">{fn ? `No config for "${fn}" in the assets bucket; edit the parameters as JSON below.` : 'Set FunctionName and Path to one of the account\'s custom transforms.'}</div>
+    </div>)
+  return (
+    <>
+      <div className="insp-section"><div className="insp-label">Custom transform</div><div><b>{t.displayName}</b>{t.description && <div className="faint">{t.description}</div>}</div></div>
+      {t.parameters.map((p) => {
+        const cur = params.find((x) => x.Name === p.name)?.Value ?? []
+        const opts = p.listOptions ?? []
+        return (
+          <div key={p.name} className="insp-section">
+            <label className="insp-label">{p.displayName}{p.isOptional ? '' : ' *'}</label>
+            {p.type === 'bool' ? <input type="checkbox" checked={cur[0] === 'true'} onChange={(e) => setParam(p.name, [String(e.target.checked)], 'str')} />
+              : opts.length && p.type === 'list' ? <select multiple value={cur} onChange={(e) => setParam(p.name, Array.from(e.target.selectedOptions).map((o) => o.value), 'list')} style={{ height: 90 }}>{opts.map((o) => <option key={o}>{o}</option>)}</select>
+              : opts.length ? <select value={cur[0] ?? ''} onChange={(e) => setParam(p.name, [e.target.value])}><option value="">—</option>{opts.map((o) => <option key={o}>{o}</option>)}</select>
+              : p.type === 'list' || p.listType === 'column' ? <Lines value={cur} onCommit={(v) => setParam(p.name, v, 'list')} help="one per line" />
+              : <Text value={cur[0] ?? ''} onCommit={(v) => setParam(p.name, [v], p.type === 'int' || p.type === 'float' ? 'str' : 'str')} />}
+            {p.description && <div className="faint" style={{ marginTop: 3 }}>{p.description}</div>}
+          </div>)
+      })}
+    </>
+  )
+}
 
 /** Glue Studio's field checklist: the upstream columns, with a free-text row for what the schema does not know yet. */
 function ColumnPick({ value, columns, onCommit }: { value: string[]; columns: string[]; onCommit: (v: string[]) => void }) {

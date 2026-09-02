@@ -163,7 +163,7 @@ public class Project {
         try {
             Files.createDirectories(d);
             Path gi = d.getParent().resolve(".gitignore"); // derived and cached files never reach a commit
-            if (!Files.exists(gi)) Files.writeString(gi, "__pycache__/\n.pytest_cache/\n.junit.xml\n.ranges.json\n.preview.py\n.preview.err\n");
+            if (!Files.exists(gi)) Files.writeString(gi, String.join("\n", Samples.IGNORE) + "\n");
         } catch (IOException e) { throw new ApiError(500, "cannot create " + d); }
         return d;
     }

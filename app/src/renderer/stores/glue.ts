@@ -7,7 +7,7 @@ export type Auth = { kind: 'ok' } | { kind: 'noProfile' } | { kind: 'expired'; f
 
 export type LocalJob = { name: string; imported: boolean; hasDag: boolean; hasScript: boolean; hasTests: boolean; lane: { exists: boolean; branch?: string; dirty?: number } }
 type GlueStore = {
-  jobs: GlueJob[]; local: LocalJob[]; loaded: boolean; failure?: Fault; auth: Auth; query: string; refreshedAt?: string
+  jobs: GlueJob[]; local: LocalJob[]; loaded: boolean; failure?: Fault; auth: Auth; query: string; refreshedAt?: string; stale?: boolean; offline?: string | null
   refreshLocal: () => Promise<void>
   createLocal: (name: string) => Promise<Fault | null>
   refresh: () => Promise<void>
@@ -28,8 +28,8 @@ export const useGlue = create<GlueStore>((set, get) => ({
     return null
   },
   refresh: async () => {
-    const r = await api.get<{ refreshedAt?: string; jobs: GlueJob[] }>('/api/glue/jobs', 'the Glue job list')
-    if (r.ok) set({ jobs: r.value.jobs, refreshedAt: r.value.refreshedAt, loaded: true, failure: undefined, auth: { kind: 'ok' } })
+    const r = await api.get<{ refreshedAt?: string; jobs: GlueJob[]; stale?: boolean; offline?: string | null }>('/api/glue/jobs', 'the Glue job list')
+    if (r.ok) set({ jobs: r.value.jobs, refreshedAt: r.value.refreshedAt, stale: r.value.stale, offline: r.value.offline ?? null, loaded: true, failure: undefined, auth: { kind: 'ok' } })
     else if (r.fault.status === 400) set({ loaded: true, auth: { kind: 'noProfile' }, failure: undefined })
     else if (r.fault.status === 401) set({ loaded: true, auth: { kind: 'expired', fix: r.fault.fix ?? 'aws sso login' }, failure: undefined })
     else set({ loaded: true, failure: r.fault })

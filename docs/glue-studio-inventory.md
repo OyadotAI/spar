@@ -35,4 +35,22 @@ All ~70 API node types are in the Add-node panel and deploy as-is. Typed editors
 Local code + tests are generated for 19 types (see `docs/plan.md` A6); the rest run only in Glue. **Gap:** Glue Studio's non-API "Flatten / UUID / Identifier / To timestamp / Format timestamp / Concatenate / Split string / … " transforms (they are DynamicTransform custom visual transforms in the assets bucket).
 
 ## Elsewhere
-Interactive sessions, notebooks, Amazon Q generation (Keel's authoring agent is the counterpart), custom visual transforms, connections management, detection entities, usage profiles, streaming maintenance windows: not in Keel v2.
+| Glue Studio / console | Keel |
+|---|---|
+| Job run monitoring: tiles, success rate, DPU usage, breakdowns by type / worker / day, runs table with filters | **Monitoring** section: the same tiles and three stacked-bar breakdowns, plus every run in the window with search and status/type/worker filters, 24h–30d. |
+| Run metrics (CloudWatch charts) | **Metrics** pane on a run: 14 Glue-namespace series grouped as data movement, memory, CPU, executors, progress, shuffle, with a crosshair. Says exactly why it is empty and offers to fix the role. |
+| Job insights (RCA + guidance log streams) | **Insights** pane on a run, reading the two `job-insights-*` streams. |
+| Spark UI in the console | **Spark UI** pane: Keel starts Spark's own history server in the Glue container against the run's S3 event logs and opens it. |
+| Interactive sessions | **Sessions** section: create (role, Glue version, worker, workers, idle timeout, connections), list, stop, delete, and a statement REPL with output. Cost and idle timeout always on screen. |
+| Upgrade analysis (console-only, no public API) | **Upgrade** tab: Keel's own rules for Glue 2/3/4 → 5 applied to the definition and the script, each finding with file:line, and one button that hands the whole thing to the agent, which rewrites and proves it with the container tests. |
+| Connections | **Connections** section: list, create, edit, delete, test, with a per-type property picker. |
+| Detection entities | **Detection entities** section: custom PII patterns with regex validation against a sample, plus the managed list. |
+| Usage profiles | **Usage profiles** section: list, view, create, edit, delete, with the job/session parameter tables. |
+| Custom visual transforms (Flatten, To timestamp, Concatenate, Lookup…) | Read from the account's Glue assets bucket and shown in the palette; dropping one creates a `DynamicTransform` node whose form is generated from the transform's own JSON config. |
+| Output schema with nested keys | Nested `struct`/`array`/`map` keys expand and edit in place, with Infer from a real run of the node. |
+| Data preview column picker | "Previewing N of M fields" with per-column checkboxes. |
+| Notebooks, Amazon Q generation, streaming maintenance windows | Not in Keel. The authoring agent is the counterpart to Q; the terminal drawer plus `claude` is the counterpart to a notebook. |
+
+## Things the account taught us
+- **Glue rewrites `Command.ScriptLocation` after `UpdateJob` when the job carries a DAG**, asynchronously and later than five seconds. Keel's first deploy lost that race and a run then failed on Glue's own generated aggregate while the local tests were green. Deploy now waits for the object to settle, writes ours last, verifies for twenty seconds more, and reports `scriptIsOurs`. `scriptMode` picks the trade-off: `both` (default), `visual` (Glue's script, fully visual console), `tested` (SCRIPT mode, our code, no canvas in the console).
+- **No logs, metrics or insights is a role problem, not a job problem.** The panes detect it, name the missing permission, show the policy and attach it on one click when your own credentials may.

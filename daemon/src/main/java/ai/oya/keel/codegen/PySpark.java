@@ -246,14 +246,14 @@ public final class PySpark {
     }
 
     /** Paths in the API are lists of path segments; joined with `.` they are Glue field paths. */
-    static String join(JsonNode path) {
+    public static String join(JsonNode path) {
         if (path.isTextual()) return path.asText();
         List<String> parts = new ArrayList<>();
         for (JsonNode p : path) parts.add(p.asText());
         return String.join(".", parts);
     }
 
-    static List<String> paths(JsonNode arr) {
+    public static List<String> paths(JsonNode arr) {
         List<String> out = new ArrayList<>();
         for (JsonNode p : arr) out.add(join(p));
         return out;
@@ -286,7 +286,7 @@ public final class PySpark {
         return b.append("}").toString();
     }
 
-    static String pyString(String s) {
+    public static String pyString(String s) {
         StringBuilder b = new StringBuilder("\"");
         for (char c : s.toCharArray()) {
             switch (c) {

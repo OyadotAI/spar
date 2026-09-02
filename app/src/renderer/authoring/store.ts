@@ -1,14 +1,30 @@
 import { create } from 'zustand'
+import { useToast } from '@/shell/Toast'
+import { useOps } from '@/shell/Ops'
 import { api, type Fault } from '@/api/client'
 import { subscribe, type Sse } from '@/api/sse'
 import { onEvent } from '@/events'
 import type { TestResult } from '@/wire/types'
 
+export type LocalResult = {
+  status: 'passed' | 'failed' | 'error'
+  nodes?: { node: string; rows: number; columns: number }[]
+  written?: { node: string; path: string; rows: number; format: string }[]
+  notCovered?: string[]
+  bookmark?: { simulated: boolean; state: Record<string, string[] | string> }
+  bookmarksSimulated?: boolean
+  message?: string
+  elapsed?: number
+  ms?: number
+  out?: string
+}
+
 export type AuthoringState = {
   script?: string | null; ranges: Record<string, [number, number]>; tests: { path: string; content: string }[]
   loaded: boolean; failure?: Fault; running: boolean; output: string[]; result?: TestResult; busy?: string; message?: string
+  localRunning: boolean; localOutput: string[]; localResult?: LocalResult
 }
-const empty = (): AuthoringState => ({ ranges: {}, tests: [], loaded: false, running: false, output: [] })
+const empty = (): AuthoringState => ({ ranges: {}, tests: [], loaded: false, running: false, output: [], localRunning: false, localOutput: [] })
 
 type Store = {
   jobs: Record<string, AuthoringState>
@@ -16,6 +32,7 @@ type Store = {
   refresh: (job: string) => Promise<void>
   generate: (job: string) => Promise<void>
   runTests: (job: string) => void
+  runLocal: (job: string, bookmarks: boolean) => void
   stopTests: (job: string) => Promise<void>
   deploy: (job: string, create?: boolean) => Promise<string>
 }
@@ -35,7 +52,8 @@ export const useAuthoring = create<Store>((set, get) => ({
   generate: async (job) => {
     patch(set, job, { busy: 'generating', message: undefined })
     const r = await api.post<{ written: string[] }>(`/api/jobs/${encodeURIComponent(job)}/generate`, { tests: true }, 'code generation')
-    patch(set, job, { busy: undefined, message: r.ok ? `generated ${r.value.written.join(', ')}` : `${r.fault.why}` })
+    patch(set, job, { busy: undefined, message: r.ok ? `generated ${r.value.written.join(', ')}` : undefined })
+    if (!r.ok) useToast.getState().fail('generate the code', r.fault)
     await get().refresh(job)
   },
   runTests: (job) => {
@@ -51,12 +69,45 @@ export const useAuthoring = create<Store>((set, get) => ({
     }, { silenceMs: 25 * 60_000 })
     runs.set(job, s)
   },
+  /**
+   * The whole pipeline on this machine, against samples/. Same event shape as the test run, so the
+   * pane is the same shape too — lines arrive in one burst because the engine answers when it is done.
+   */
+  runLocal: (job, bookmarks) => {
+    const key = 'local:' + job
+    if (runs.has(key)) return
+    patch(set, job, { localRunning: true, localOutput: [], localResult: undefined })
+    const op = useOps.getState().start(`Running ${job} locally`)
+    const s2 = subscribe(`/api/jobs/${encodeURIComponent(job)}/run/local?bookmarks=${bookmarks}`, {
+      on: (ev, data) => {
+        if (ev === 'line') patch(set, job, (a) => ({ localOutput: [...a.localOutput.slice(-1999), (JSON.parse(data) as { text: string }).text] }))
+        else if (ev === 'result') {
+          const r = JSON.parse(data) as LocalResult
+          patch(set, job, { localResult: r })
+          if (r.status === 'passed') useToast.getState().done(`${job} ran locally`, `${r.nodes?.length ?? 0} nodes, ${(r.ms ?? 0) / 1000}s, no AWS`)
+          else useToast.getState().push({ kind: 'bad', title: `${job} failed locally`, detail: (r.message ?? '').split('\n').slice(-2).join(' ') })
+        } else if (ev === 'done') { patch(set, job, { localRunning: false }); runs.delete(key); useOps.getState().finish(op) }
+      },
+      end: (reason) => {
+        if (runs.get(key) === s2) {
+          runs.delete(key); useOps.getState().finish(op)
+          patch(set, job, (a) => ({ localRunning: false, localOutput: a.localResult ? a.localOutput : [...a.localOutput, `[${reason}]`] }))
+        }
+      },
+    }, { silenceMs: 25 * 60_000 })
+    runs.set(key, s2)
+  },
   stopTests: async (job) => { await api.post(`/api/jobs/${encodeURIComponent(job)}/test/stop`, {}, 'stopping tests'); runs.get(job)?.close(); runs.delete(job); patch(set, job, { running: false }) },
   deploy: async (job, create = false) => {
     patch(set, job, { busy: 'deploying', message: undefined })
-    const r = await api.post<{ note: string; scriptLocation: string }>(`/api/jobs/${encodeURIComponent(job)}/deploy`, { create }, 'the deploy')
+    // Deploy settles + verifies the script against Glue's own regeneration: ~110 s, well past the default ceiling.
+    const id = useOps.getState().start(`Deploying ${job}`)
+    const r = await api.post<{ note: string; scriptLocation: string; scriptIsOurs?: boolean; jobMode?: string }>(`/api/jobs/${encodeURIComponent(job)}/deploy`, { create }, 'the deploy', 4 * 60_000)
+      .finally(() => useOps.getState().finish(id))
     const msg = r.ok ? r.value.note : `${r.fault.why}${r.fault.fix ? ` — ${r.fault.fix}` : ''}`
-    patch(set, job, { busy: undefined, message: msg })
+    patch(set, job, { busy: undefined, message: r.ok ? msg : undefined })
+    if (!r.ok) useToast.getState().fail('deploy', r.fault)
+    else useToast.getState().push({ kind: r.value.scriptIsOurs === false ? 'info' : 'ok', title: `${job} deployed`, detail: r.value.note })
     return msg
   },
 }))

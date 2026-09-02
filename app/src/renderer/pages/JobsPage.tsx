@@ -10,6 +10,10 @@ import { ago, duration, isRunning, stateTone } from '@/shell/format'
 import { ProfilePicker } from '@/pages/ProfilePicker'
 import type { GlueJob, MonitorReply } from '@/wire/types'
 import { api } from '@/api/client'
+import { tell, useToast } from '@/shell/Toast'
+import { confirm } from '@/shell/Confirm'
+import { useEscape } from '@/shell/useEscape'
+import { prompt } from '@/shell/Prompt'
 import { onEvent } from '@/events'
 
 const COLS = 'minmax(220px, 2fr) 90px 80px 60px 110px 130px 110px 100px 90px'
@@ -47,7 +51,7 @@ function Tiles({ m, hours, setHours }: { m: MonitorReply; hours: number; setHour
 
 export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }) {
   const { state, connection, deathReason, toggle } = useApp()
-  const { jobs, local, loaded, failure, auth, query, setQuery, refresh, refreshLocal, createLocal } = useGlue()
+  const { jobs, local, loaded, failure, auth, query, setQuery, refresh, refreshLocal, createLocal, stale, offline, refreshedAt } = useGlue()
   const [newName, setNewName] = useState<string | null>(null)
   const [newErr, setNewErr] = useState<string | null>(null)
   const rows = useMemo(() => filteredJobs(jobs, query), [jobs, query])
@@ -55,11 +59,13 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
   useEffect(() => { if (!loaded && connection === 'connected') { void refresh(); void refreshLocal() } }, [loaded, connection, refresh, refreshLocal])
   const drafts = local.filter((l) => !jobs.some((j) => j.name === l.name))
   const [hours, setHours] = useState(24)
+  useEscape(newName !== null, () => setNewName(null))
   const monitor = useMonitor(loaded && auth.kind === 'ok' && jobs.length > 0, hours)
   const importJson = async () => {
     const f = await window.keel.openText(); if (!f) return
     try { const def = JSON.parse(f.text) as Record<string, unknown>; const j = (def.Job ?? def) as Record<string, unknown>; const name = String(j.Name ?? f.name.replace(/\.json$/, ''))
-      const r = await api.post<{ name: string }>(`/api/glue/jobs/${encodeURIComponent(name)}/import-json`, j, 'importing the job'); if (!r.ok) setNewErr(r.fault.why); else { void refresh(); onOpen({ name }) } } catch (e) { setNewErr((e as Error).message) }
+      const r = await api.post<{ name: string }>(`/api/glue/jobs/${encodeURIComponent(name)}/import-json`, j, 'importing the job')
+      if (!r.ok) useToast.getState().fail('import the job', r.fault); else { useToast.getState().done(`${name} created in AWS`); void refresh(); onOpen({ name }) } } catch (e) { useToast.getState().push({ kind: 'bad', title: 'That file is not a job definition', detail: (e as Error).message }) }
   }
   const running = jobs.filter((j) => isRunning(j.latestRun?.state)).length
   const create = async () => {
@@ -75,8 +81,13 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
   else if (!state || (!loaded && connection !== 'connected')) body = <EmptyState title="Starting…">Waiting for the daemon.</EmptyState>
   else if (!state.tools.aws.installed) body = <EmptyState title="The aws CLI is not on PATH">Keel uses it for job definitions and SSO sign-in. Install it from aws.amazon.com/cli, then restart Keel.</EmptyState>
   else if (auth.kind === 'noProfile') body = (
-    <EmptyState title="No AWS profile selected" actions={<button className="primary" onClick={() => toggle('showSettings', true)}>Choose or add a profile…</button>}>
-      Pick a profile from ~/.aws/config, or add an IAM Identity Center (SSO) one.
+    <EmptyState title="No AWS profile selected"
+      actions={<>
+        <button className="primary" onClick={() => { setNewName(''); setNewErr(null) }}><Icon name="plus" />Start a local job</button>
+        <button onClick={() => toggle('showSettings', true)}>Connect AWS…</button>
+      </>}>
+      Building a pipeline, generating its code, running its tests and running it on sample data all happen on this machine.
+      AWS is needed only to import an existing job, to deploy, and to run in the cloud.
     </EmptyState>)
   else if (auth.kind === 'expired') body = (
     <EmptyState title={`Sign in to ${state.profile}`} actions={<button className="primary" onClick={() => openTerminal(auth.fix)}>Sign in</button>}>
@@ -112,6 +123,12 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
           <span className="eyebrow">Local only</span>
           {drafts.map((l) => <button key={l.name} className="quiet" onClick={() => onOpen({ name: l.name })} title={`jobs/${l.name} on ${l.lane.branch ?? 'the project branch'} — not in AWS yet`}>{l.name}<span className="pill">draft</span></button>)}
         </div>)}
+      {stale && (
+        <div className="row offline-note">
+          <Icon name="clock" size={13} />
+          <span className="fill">Showing the last listing{refreshedAt ? `, as of ${ago(refreshedAt)}` : ''}. {offline ?? 'AWS has not answered yet.'}</span>
+          <button className="quiet" onClick={() => void refresh()}>Try again</button>
+        </div>)}
       {monitor && loaded && auth.kind === 'ok' && jobs.length > 0 && <Tiles m={monitor} hours={hours} setHours={setHours} />}
       <div className="fill" style={{ minHeight: 0 }}>{body}</div>
       {newName !== null && (
@@ -135,11 +152,22 @@ function Table({ rows, onOpen }: { rows: GlueJob[]; onOpen: (j: GlueJob) => void
   const refresh = useGlue((s) => s.refresh)
   const act = async (j: GlueJob, what: 'run' | 'clone' | 'delete' | 'export') => {
     setMenu(null)
-    if (what === 'run') { await api.post(`/api/glue/jobs/${encodeURIComponent(j.name)}/runs`, {}, `starting ${j.name}`) }
-    else if (what === 'clone') { const n = window.prompt('Name for the copy', `${j.name}-copy`); if (n) { const r = await api.post<{ name: string }>(`/api/glue/jobs/${encodeURIComponent(j.name)}/clone`, { newName: n }, 'cloning'); if (!r.ok) window.alert(r.fault.why); else void refresh() } }
-    else if (what === 'delete') { if (window.confirm(`Delete the Glue job "${j.name}" from AWS? The local folder, if any, stays.`)) { const r = await api.del(`/api/glue/jobs/${encodeURIComponent(j.name)}`, 'deleting'); if (!r.ok) window.alert(r.fault.why); else void refresh() } }
-    else if (what === 'export') { const r = await api.get<unknown>(`/api/glue/jobs/${encodeURIComponent(j.name)}/export`, 'exporting'); if (r.ok) void window.keel.saveText(`${j.name}.json`, JSON.stringify(r.value, null, 2)) }
+    if (what === 'run') {
+      const r = await tell(`start ${j.name}`, api.post<{ runId: string }>(`/api/glue/jobs/${encodeURIComponent(j.name)}/runs`, {}, `starting ${j.name}`))
+      if (r) useToast.getState().done(`${j.name} started`, r.runId.slice(3, 19) + '…')
+    } else if (what === 'clone') {
+      const n = await prompt({ title: `Clone ${j.name}`, body: 'A copy of the job definition, including its DAG, under a new name in AWS.', value: `${j.name}-copy`, mono: true, confirmLabel: 'Clone' })
+      if (n && await tell('clone the job', api.post<{ name: string }>(`/api/glue/jobs/${encodeURIComponent(j.name)}/clone`, { newName: n }, 'cloning'), `Cloned to ${n}`)) void refresh()
+    } else if (what === 'delete') {
+      const ok = await confirm({ title: `Delete ${j.name} from AWS?`, danger: true, typeToConfirm: j.name, confirmLabel: 'Delete job',
+        body: 'This removes the job definition and its run history from your AWS account. The local folder, its git branch and its tests stay on this machine.' })
+      if (ok && await tell('delete the job', api.del(`/api/glue/jobs/${encodeURIComponent(j.name)}`, 'deleting'), `${j.name} deleted from AWS`)) void refresh()
+    } else if (what === 'export') {
+      const r = await tell('export the job', api.get<unknown>(`/api/glue/jobs/${encodeURIComponent(j.name)}/export`, 'exporting'))
+      if (r) void window.keel.saveText(`${j.name}.json`, JSON.stringify(r, null, 2))
+    }
   }
+  useEscape(!!menu, () => setMenu(null))
   const v = useVirtualizer({ count: rows.length, getScrollElement: () => parent.current, estimateSize: () => 36, overscan: 12 })
   return (
     <div className="col" style={{ height: '100%' }}>
@@ -147,7 +175,21 @@ function Table({ rows, onOpen }: { rows: GlueJob[]; onOpen: (j: GlueJob) => void
         <span>Name</span><span>Type</span><span>Mode</span><span>Glue</span><span>Workers</span><span>Last run</span><span>Started</span><span>Modified</span><span>Duration</span>
       </div>
       <div ref={parent} className="fill" style={{ overflow: 'auto' }} tabIndex={0}
-        onKeyDown={(e) => { if (e.key === 'Enter' && selected) { const j = rows.find((r) => r.name === selected); if (j) onOpen(j) } }}>
+        onKeyDown={(e) => {
+          const at = rows.findIndex((r) => r.name === selected)
+          if (e.key === 'Enter' && at >= 0) onOpen(rows[at]!)
+          else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault()
+            const next = Math.min(rows.length - 1, Math.max(0, (at < 0 ? -1 : at) + (e.key === 'ArrowDown' ? 1 : -1)))
+            const j = rows[next]
+            if (j) { setSelected(j.name); v.scrollToIndex(next, { align: 'auto' }) }
+          } else if (e.key === 'Home' || e.key === 'End') {
+            e.preventDefault()
+            const n = e.key === 'Home' ? 0 : rows.length - 1
+            const j = rows[n]
+            if (j) { setSelected(j.name); v.scrollToIndex(n, { align: 'auto' }) }
+          }
+        }}>
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {v.getVirtualItems().map((it) => {
             const j = rows[it.index]!; const r = j.latestRun

@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { api } from '@/api/client'
 import { onEvent } from '@/events'
 import { Icon } from './Icon'
+import { prompt } from './Prompt'
+import { tell } from './Toast'
 
 type Git = { branch?: string; head?: string; dirty: { status: string; path: string }[] }
 const cache = new Map<string, Git>()
@@ -19,9 +21,11 @@ export function GitBar({ job }: { job: string }) {
   const [busy, setBusy] = useState(false)
   if (!g?.branch) return null
   const commit = async () => {
-    const message = window.prompt('Commit message', `keel: ${job}`)
+    const message = await prompt({ title: `Commit ${g.dirty.length} change${g.dirty.length > 1 ? 's' : ''}`, body: `On ${g.branch}. Everything uncommitted in this job's worktree.`, value: `keel: ${job}`, confirmLabel: 'Commit' })
     if (message === null) return
-    setBusy(true); await api.post(`/api/jobs/${encodeURIComponent(job)}/commit`, { message }, 'the commit'); setBusy(false); void load()
+    setBusy(true)
+    await tell('commit', api.post<{ commit: string | null }>(`/api/jobs/${encodeURIComponent(job)}/commit`, { message }, 'the commit'), 'Committed')
+    setBusy(false); void load()
   }
   return (
     <span className="row dim small" style={{ gap: 6, marginLeft: 8 }} title={g.dirty.map((d) => `${d.status} ${d.path}`).join('\n')}>

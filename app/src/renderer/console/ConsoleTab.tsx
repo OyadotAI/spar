@@ -7,6 +7,9 @@ import { Icon } from '@/shell/Icon'
 import { ago, duration, isRunning, stateTone, when } from '@/shell/format'
 import type { GlueRun } from '@/wire/types'
 import { RunLinks } from './RunLinks'
+import { TriagePanel, LogWhereNote } from './Triage'
+import { MetricsPane, InsightsPane, SparkUiPane } from '@/job/RunPanes'
+import { RolePrompt } from '@/job/RolePrompt'
 
 export function ConsoleTab({ job }: { job: string }) {
   const st = useJob((s) => s.jobs[job])
@@ -28,7 +31,14 @@ export function RunsList({ runs, selected, onSelect, compact = false }: { runs: 
   return (
     <div className="col" style={{ height: '100%' }}>
       {!compact && <div className="jobs-head" style={{ gridTemplateColumns: cols, padding: '0 14px' }}><span>State</span><span>Run</span><span>Started</span><span>Duration</span><span>DPU-hours</span><span>Capacity</span><span>Error</span></div>}
-      <div className="fill" style={{ overflow: 'auto' }}>
+      <div className="fill" style={{ overflow: 'auto' }} tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+          e.preventDefault()
+          const at = runs.findIndex((r) => r.id === selected)
+          const next = runs[Math.min(runs.length - 1, Math.max(0, (at < 0 ? -1 : at) + (e.key === 'ArrowDown' ? 1 : -1)))]
+          if (next) onSelect(next.id)
+        }}>
         {runs.map((r) => (
           <div key={r.id} className={'jobs-row static' + (r.id === selected ? ' selected' : '')} style={{ gridTemplateColumns: cols, height: compact ? 30 : 32, padding: compact ? '0 12px' : '0 14px' }} onClick={() => onSelect(r.id)}>
             <span><span className={'pill ' + stateTone(r.state)}>{isRunning(r.state) && <span className="dot live" />}{r.state.toLowerCase()}</span></span>
@@ -45,7 +55,21 @@ export function RunsList({ runs, selected, onSelect, compact = false }: { runs: 
 }
 
 function RunPane({ job, run }: { job: string; run: GlueRun }) {
-  return <SplitPane vertical storageKey="console.detail" initial={run.errorMessage ? 190 : 118} min={70} minB={160} a={<RunDetail job={job} run={run} />} b={<LogConsole job={job} />} />
+  const [pane, setPane] = useState<'logs' | 'metrics' | 'insights' | 'spark'>('logs')
+  const body = (
+    <div className="col" style={{ height: '100%' }}>
+      <div className="row subtabs" style={{ height: 30, padding: '0 12px', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', background: 'var(--surface)', flex: 'none' }}>
+        {([['logs', 'Logs'], ['metrics', 'Metrics'], ['insights', 'Insights'], ['spark', 'Spark UI']] as const).map(([k, l]) => (
+          <button key={k} className={'tabbtn' + (pane === k ? ' on' : '')} onClick={() => setPane(k)}>{l}</button>))}
+      </div>
+      <div className="fill" style={{ minHeight: 0 }}>
+        {pane === 'logs' ? <LogConsole job={job} />
+          : pane === 'metrics' ? <MetricsPane job={job} run={run.id} />
+          : pane === 'insights' ? <InsightsPane job={job} run={run.id} />
+          : <SparkUiPane job={job} run={run.id} />}
+      </div>
+    </div>)
+  return <SplitPane vertical storageKey="console.detail" initial={run.errorMessage ? 190 : 118} min={70} minB={200} a={<RunDetail job={job} run={run} />} b={body} />
 }
 
 function Fact({ k, v, tone }: { k: string; v: React.ReactNode; tone?: string }) {
@@ -74,6 +98,7 @@ function RunDetail({ job, run }: { job: string; run: GlueRun }) {
       <div style={{ padding: '0 10px 6px' }}><RunLinks job={job} runId={run.id} /></div>
       {run.stateDetail && <div className="dim small" style={{ padding: '0 14px 8px' }}>{run.stateDetail}</div>}
       {run.errorMessage && <pre className="err" style={{ margin: '0 14px 10px' }}>{run.errorMessage}</pre>}
+      {(run.errorMessage || run.state === 'FAILED' || run.state === 'TIMEOUT' || run.state === 'ERROR') && <TriagePanel job={job} run={run.id} />}
       {showArgs && <table className="mono small" style={{ borderCollapse: 'collapse', margin: '0 14px 10px' }}><tbody>
         {args.map(([k, v]) => <tr key={k}><td className="dim" style={{ paddingRight: 14, verticalAlign: 'top' }}>{k}</td><td style={{ wordBreak: 'break-all' }}>{v}</td></tr>)}
       </tbody></table>}
@@ -93,22 +118,22 @@ export function LogConsole({ job }: { job: string }) {
     ? (st.streams.length ? 'Streams found; waiting for lines…' : 'No log streams for this run yet. Glue opens them about a minute into a run. If a finished run has none, the job\'s IAM role cannot write to CloudWatch Logs (it needs logs:CreateLogGroup, logs:CreateLogStream, logs:PutLogEvents on /aws-glue/*).')
     : st.logState.kind === 'ended' && !st.streams.length ? 'This run wrote no CloudWatch logs. Its IAM role needs logs:CreateLogGroup/CreateLogStream/PutLogEvents on /aws-glue/* for Glue to keep them.' : 'No lines.'
   return (
-    <div className="col" style={{ height: '100%' }}>
+    <div className="col" style={{ height: '100%', position: 'relative' }}>
       <div className="logbar">
-        <span className="eyebrow">Log</span>
         <select value={st.group} onChange={(e) => setGroup(job, e.target.value as typeof st.group)}>
           <option value="all">all streams</option><option value="output">output (stdout/stderr)</option><option value="error">error (driver, Spark)</option>
         </select>
         <input placeholder="filter" value={st.search} onChange={(e) => setSearch(job, e.target.value)} style={{ width: 180 }} />
         <button className={'quiet' + (st.follow ? ' on' : '')} onClick={() => setFollow(job, !st.follow)} title="Follow the tail">{st.follow ? 'following' : 'follow'}</button>
         <button className="quiet" onClick={() => clearLines(job)}>clear</button>
+        <LogWhereNote job={job} />
         <span className="fill" />
         <span className="faint fig">{st.streams.length ? `${st.streams.length} stream${st.streams.length > 1 ? 's' : ''} · ` : ''}{lines.length} lines
           {st.logState.kind === 'streaming' && <> · <span style={{ color: 'var(--add)' }}>live</span></>}{st.logState.kind === 'ended' && ` · ${st.logState.reason}`}
           {st.logState.kind === 'stalled' && <> · <span style={{ color: 'var(--warn)' }}>{st.logState.reason}</span> <button className="quiet" onClick={() => reconnectLogs(job)}>reconnect</button></>}</span>
       </div>
       <div ref={parent} className="fill logwell" style={{ overflow: 'auto', padding: '4px 0' }} onScroll={onScroll}>
-        {lines.length === 0 && <div className="faint small" style={{ padding: '10px 12px', whiteSpace: 'pre-wrap', maxWidth: 80 * 7 }}>{empty}</div>}
+        {lines.length === 0 && <><div className="faint small" style={{ padding: '10px 12px', whiteSpace: 'pre-wrap', maxWidth: 80 * 7 }}>{empty}</div>{st.logState.kind !== 'idle' && !st.streams.length && <RolePrompt job={job} need="logs" />}</>}
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {v.getVirtualItems().map((it) => { const l = lines[it.index]!; return (
             <div key={it.key} className="logline" style={{ transform: `translateY(${it.start}px)`, color: l.group === 'error' && /ERROR|Exception|Traceback/.test(l.message) ? 'var(--del)' : undefined }}>
