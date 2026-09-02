@@ -1,0 +1,25 @@
+appId: ai.oya.keel
+productName: Keel
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**
+extraResources:
+  - from: ../daemon/target/keel-daemon.jar
+    to: keel-daemon.jar
+  - from: jre
+    to: jre
+    filter: ["**/*"]
+mac:
+  category: public.app-category.developer-tools
+  target: [dmg]
+win:
+  target: [nsis]
+linux:
+  target: [AppImage, deb]
+  category: Development
+publish:
+  provider: github
+  owner: OyadotAI
+  repo: keel-releases

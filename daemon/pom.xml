@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.16</version>
+    <relativePath/>
+  </parent>
+  <groupId>ai.oya</groupId>
+  <artifactId>keel-daemon</artifactId>
+  <version>0.1.0</version>
+  <name>keel-daemon</name>
+  <description>Keel v2 daemon: drives claude, talks to AWS Glue, serves the Electron app over loopback</description>
+
+  <properties>
+    <java.version>21</java.version>
+    <awssdk.version>2.54.10</awssdk.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>software.amazon.awssdk</groupId>
+        <artifactId>bom</artifactId>
+        <version>${awssdk.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-websocket</artifactId></dependency>
+    <!-- AWS: glue + logs + s3 for the product; sts/sso/ssooidc so SSO profiles resolve; sqs/eventbridge/cloudtrail for push -->
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>glue</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>cloudwatchlogs</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>s3</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>sts</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>sso</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>ssooidc</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>sqs</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>eventbridge</artifactId></dependency>
+    <dependency><groupId>software.amazon.awssdk</groupId><artifactId>cloudtrail</artifactId></dependency>
+    <!-- a cross-platform pty for the terminal drawer; native libs for mac/win/linux are inside -->
+    <dependency><groupId>org.jetbrains.pty4j</groupId><artifactId>pty4j</artifactId><version>0.13.12</version></dependency>
+    <!-- native file watching (FSEvents / inotify / ReadDirectoryChangesW) for jobs/** -->
+    <dependency><groupId>io.methvin</groupId><artifactId>directory-watcher</artifactId><version>0.19.1</version></dependency>
+
+    <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-test</artifactId><scope>test</scope></dependency>
+  </dependencies>
+
+  <build>
+    <finalName>keel-daemon</finalName>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

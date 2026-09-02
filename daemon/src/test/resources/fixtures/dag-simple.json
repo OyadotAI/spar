@@ -1,0 +1,71 @@
+{
+  "n-orders": {
+    "S3CsvSource": {
+      "Name": "Orders CSV",
+      "Paths": ["s3://example-bucket/orders/"],
+      "Separator": "comma",
+      "QuoteChar": "quote",
+      "WithHeader": true,
+      "Recurse": true,
+      "OutputSchemas": [{"Columns": [{"Name": "order_id", "Type": "int"}, {"Name": "customer_id", "Type": "int"}, {"Name": "status", "Type": "string"}, {"Name": "amount", "Type": "double"}]}]
+    }
+  },
+  "n-customers": {
+    "S3CsvSource": {
+      "Name": "Customers CSV",
+      "Paths": ["s3://example-bucket/customers/"],
+      "Separator": "comma",
+      "QuoteChar": "quote",
+      "WithHeader": true,
+      "OutputSchemas": [{"Columns": [{"Name": "customer_id", "Type": "int"}, {"Name": "country", "Type": "string"}]}]
+    }
+  },
+  "n-map": {
+    "ApplyMapping": {
+      "Name": "Map orders",
+      "Inputs": ["n-orders"],
+      "Mapping": [
+        {"ToKey": "order_id", "FromPath": ["order_id"], "FromType": "string", "ToType": "int"},
+        {"ToKey": "customer_id", "FromPath": ["customer_id"], "FromType": "string", "ToType": "int"},
+        {"ToKey": "status", "FromPath": ["status"], "FromType": "string", "ToType": "string"},
+        {"ToKey": "amount", "FromPath": ["amount"], "FromType": "string", "ToType": "double"}
+      ]
+    }
+  },
+  "n-paid": {
+    "Filter": {
+      "Name": "Only paid",
+      "Inputs": ["n-map"],
+      "LogicalOperator": "AND",
+      "Filters": [
+        {"Operation": "EQ", "Negated": false, "Values": [{"Type": "COLUMNEXTRACTED", "Value": ["status"]}, {"Type": "CONSTANT", "Value": ["paid"]}]},
+        {"Operation": "GT", "Negated": false, "Values": [{"Type": "COLUMNEXTRACTED", "Value": ["amount"]}, {"Type": "CONSTANT", "Value": ["0"]}]}
+      ]
+    }
+  },
+  "n-join": {
+    "Join": {
+      "Name": "Join customers",
+      "Inputs": ["n-paid", "n-customers"],
+      "JoinType": "equijoin",
+      "Columns": [{"From": "n-paid", "Keys": [["customer_id"]]}, {"From": "n-customers", "Keys": [["customer_id"]]}]
+    }
+  },
+  "n-agg": {
+    "Aggregate": {
+      "Name": "Revenue by country",
+      "Inputs": ["n-join"],
+      "Groups": [["country"]],
+      "Aggs": [{"Column": ["amount"], "AggFunc": "sum"}, {"Column": ["order_id"], "AggFunc": "count"}]
+    }
+  },
+  "n-out": {
+    "S3DirectTarget": {
+      "Name": "Revenue CSV",
+      "Inputs": ["n-agg"],
+      "Path": "s3://example-bucket/out/revenue/",
+      "Format": "csv",
+      "PartitionKeys": []
+    }
+  }
+}

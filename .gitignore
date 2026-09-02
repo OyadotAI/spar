@@ -1,0 +1,14 @@
+# daemon
+daemon/target/
+# app
+app/node_modules/
+app/out/
+app/dist/
+app/release/
+# keel per-project state (never in this repo)
+.keel/
+.DS_Store
+*.log
+
+# built runtime for packaging
+app/jre/
