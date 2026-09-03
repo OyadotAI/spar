@@ -1,0 +1,35 @@
+name: "✨ Feature Request / Node Proposal"
+description: "Suggest a new capability, visual Glue transform node, or workflow improvement"
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        We welcome proposals for new Glue transform node templates, local shims, and UI improvements!
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of what the problem is.
+      placeholder: "I'm always frustrated when I need to configure a Glue DynamicTransform node..."
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see in SparData.
+      placeholder: "Add code generation and visual node template for DynamicTransform..."
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any alternative solutions or features you've considered.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Links to AWS Glue documentation, sample PySpark scripts, or screenshots.

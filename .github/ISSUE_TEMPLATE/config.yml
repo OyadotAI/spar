@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 🌐 SparData Website
+    url: https://spardata.dev
+    about: Learn more about SparData and read feature documentation.
+  - name: 💬 Community Discussions
+    url: https://github.com/OyadotAI/spar/discussions
+    about: Ask questions, discuss pipeline patterns, and share feedback.
