@@ -101,8 +101,10 @@ export function Welcome({ onOpened }: { onOpened: () => void }) {
               </div>)
           })}
         </div>}
-        {known && missing.length === 0 && <p className="faint small">Everything Keel uses is present.</p>}
-        <p className="faint small" style={{ marginTop: 18 }}>Nothing is sent anywhere. The daemon listens on 127.0.0.1 and dies with this window.</p>
+        {known && missing.length === 0 && <p className="faint small">Everything SparData uses is present.</p>}
+        <p className="faint small" style={{ marginTop: 18 }}>
+          Independent open-source project, not affiliated with AWS or Amazon. The local daemon listens on 127.0.0.1 and dies with this window.
+        </p>
       </div>
     </div>
   )

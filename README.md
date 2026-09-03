@@ -210,6 +210,14 @@ Contributions, bug reports, and feature requests are welcome!
 
 ---
 
+## ⚖️ Disclaimer
+
+**SparData is an independent open-source project and is not affiliated with, endorsed by, or sponsored by Amazon Web Services (AWS) or Amazon.com, Inc.**
+
+Built by developers who love AWS Glue and Apache Spark, but wanted a fast, local-first developer experience instead of wrestling with the AWS web console.
+
+---
+
 ## 📄 License
 
 SparData is open-source software licensed under the [MIT License](LICENSE).
