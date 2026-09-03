@@ -87,7 +87,7 @@ function createWindow(): void {
     width: Number(process.env.KEEL_SIZE?.split('x')[0]) || 1400,
     height: Number(process.env.KEEL_SIZE?.split('x')[1]) || 900,
     minWidth: 960, minHeight: 600,
-    title: 'Keel',
+    title: 'SparData',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
     ...(icon ? { icon } : {}),
     // matches theme.css's --bg, so the window does not flash the wrong colour before the first paint

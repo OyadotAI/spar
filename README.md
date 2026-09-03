@@ -1,10 +1,12 @@
-# Keel for AWS Glue Studio
+# SparData for AWS Glue Studio
 
-A desktop ADE for AWS Glue jobs. Every Glue job in your account on one page, updating on its own;
+A local-first desktop ADE for AWS Glue jobs. Every Glue job in your account on one page, updating on its own;
 a Console with the run history and a live CloudWatch tail beside a debugging agent that already has
 the failed run's log in front of it; and an Authoring tab where a visual DAG editor and an agent
-edit the same `dag.json`, Keel generates the PySpark, and pytest runs inside AWS's own Glue image
+edit the same `dag.json`, SparData generates the PySpark, and pytest runs inside AWS's own Glue image
 before anything is deployed.
+
+Website: [spardata.dev](https://spardata.dev) · Repository: [github.com/OyadotAI/spar](https://github.com/OyadotAI/spar)
 
 macOS, Windows and Linux. A Java daemon on loopback does the work; an Electron app is the window.
 The agent is your own `claude` (Claude Code) — no API key, and every risky tool call blocks on an
@@ -32,7 +34,7 @@ jobs/<name>/
 
 Each job gets its own branch and worktree (`.keel/worktrees/<name>` on `keel/<name>`). Deploy
 pushes the DAG (so the AWS console stays visual) and then the tested `job.py` to the job's
-`ScriptLocation`. A Save in the AWS console regenerates the script; Keel says so on every deploy.
+`ScriptLocation`. A Save in the AWS console regenerates the script; SparData says so on every deploy.
 
 ## Near real time
 
@@ -40,7 +42,7 @@ Glue only pushes terminal run states through EventBridge, and only CloudTrail ca
 UpdateJob / StartJobRun. So the daemon polls (`ListJobs` every 5s, `BatchGetJobs` every 30s, runs
 every 3s while live and on an adaptive sweep otherwise) and, when you enable it in Settings, adds
 an SQS queue fed by two EventBridge rules so completions arrive in about a second. Files edited
-outside Keel are watched too. Nothing in the window polls.
+outside SparData are watched too. Nothing in the window polls.
 
 The design, with the reasons, is in [`docs/plan.md`](docs/plan.md); the working agreement for
 contributors is [`CLAUDE.md`](CLAUDE.md).

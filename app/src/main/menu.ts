@@ -70,13 +70,14 @@ export function installMenu(win: () => BrowserWindow | null): void {
     {
       role: 'help',
       submenu: [
-        { label: 'Keel on GitHub', click: () => void shell.openExternal('https://github.com/oya-ai/keel') },
+        { label: 'SparData Website', click: () => void shell.openExternal('https://spardata.dev') },
+        { label: 'SparData on GitHub', click: () => void shell.openExternal('https://github.com/OyadotAI/spar') },
         { label: 'AWS Glue Documentation', click: () => void shell.openExternal('https://docs.aws.amazon.com/glue/latest/dg/') },
       ],
     },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(tpl))
-  app.setName('Keel')
+  app.setName('SparData')
 }
 
 /** The renderer says when a DAG canvas is on screen; the Canvas menu follows it. */

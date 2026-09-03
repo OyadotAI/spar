@@ -81,7 +81,7 @@ export function App() {
     <div className="app">
       {hasProject && <LaneTabs tabs={tabs} active={showSettings ? 'home' : lanes.active}
         onSelect={(id) => { toggle('showSettings', false); lanes.select(id) }} onClose={lanes.close} />}
-      {!hasProject && <div className="tabs"><div className="brand"><Icon name="keel" size={16} /><span>Keel</span></div></div>}
+      {!hasProject && <div className="tabs"><div className="brand"><Icon name="keel" size={16} /><span>SparData</span></div></div>}
       <div className="fill" style={{ minHeight: 0 }}>
         {!hasProject ? <Welcome onOpened={() => { setConnection('starting'); void refreshState() }} />
           : lane && !showSettings ? <JobPage key={lane.id} lane={lane} />

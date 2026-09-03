@@ -1,5 +1,5 @@
-appId: ai.oya.keel
-productName: Keel
+appId: dev.spardata.app
+productName: SparData
 directories:
   output: release
   buildResources: build
@@ -22,4 +22,4 @@ linux:
 publish:
   provider: github
   owner: OyadotAI
-  repo: keel-releases
+  repo: spar

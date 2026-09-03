@@ -1,8 +1,10 @@
 {
-  "name": "keel",
-  "productName": "Keel",
+  "name": "spardata",
+  "productName": "SparData",
   "version": "0.1.0",
-  "description": "Keel for AWS Glue Studio",
+  "description": "SparData for AWS Glue Studio",
+  "homepage": "https://spardata.dev",
+  "repository": "https://github.com/OyadotAI/spar",
   "main": "./out/main/index.js",
   "author": "Oya",
   "license": "MIT",

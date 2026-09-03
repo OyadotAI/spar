@@ -13,7 +13,7 @@ export function LaneTabs({ tabs, active, onSelect, onClose }:
   const mac = useApp((s) => s.state?.os?.startsWith('Mac')) ?? navigator.platform.startsWith('Mac')
   return (
     <div className="tabs" role="tablist" aria-label="Open tabs" style={{ ['--pad-left' as string]: mac ? '76px' : '8px' }}>
-      <div className="brand"><Icon name="keel" size={16} /><span>Keel</span></div>
+      <div className="brand"><Icon name="keel" size={16} /><span>SparData</span></div>
       {tabs.map((t, i) => (
         <button key={t.id} role="tab" aria-selected={t.id === active} tabIndex={t.id === active ? 0 : -1}
           className={'tab' + (t.id === active ? ' active' : '')} onClick={() => onSelect(t.id)} title={t.title}

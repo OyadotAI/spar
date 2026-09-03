@@ -23,7 +23,7 @@ export function TurnCard({ turn, index }: { turn: Turn; index: number }) {
   return (
     <div className="turn">
       <div className="prompt">{turn.prompt}</div>
-      <div className="who"><Icon name="keel" size={14} />Keel <span className="faint" style={{ fontWeight: 400 }}>· turn {index}</span></div>
+      <div className="who"><Icon name="keel" size={14} />SparData <span className="faint" style={{ fontWeight: 400 }}>· turn {index}</span></div>
       {group(turn.steps).map((s, i) => s.kind === 'calls' ? <Calls key={i} calls={s.calls} running={turn.running} /> : <StepView key={i} step={s} />)}
       {turn.error && <TurnError error={turn.error} turn={turn} />}
       {!turn.running && <Footer turn={turn} />}

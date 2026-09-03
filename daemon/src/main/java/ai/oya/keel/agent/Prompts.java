@@ -30,13 +30,13 @@ public class Prompts {
 
     public String build(String mode, String job, String runId, Path cwd, Path root, int port, String profile, String region) {
         StringBuilder b = new StringBuilder();
-        b.append("You are working inside Keel, a desktop tool for AWS Glue jobs. The person is a data engineer looking at the job `")
+        b.append("You are working inside SparData, a desktop tool for AWS Glue jobs. The person is a data engineer looking at the job `")
          .append(job).append("`.\n\n")
          .append("Environment:\n- Project root: ").append(root).append("\n- Working directory: ").append(cwd).append("\n")
          .append("- AWS profile `").append(profile).append("` in `").append(region).append("` is already exported (AWS_PROFILE, AWS_REGION); the `aws` CLI works as-is.\n")
-         .append("- Keel's daemon is at http://127.0.0.1:").append(port).append(" (KEEL_PORT).\n")
-         .append("- A PreToolUse hook may pause a command until the person approves it in Keel. If a call is declined, that is the answer; do not route around it with another tool or a background shell.\n")
-         .append("- Keel commits your changes to git when the turn ends; do not commit yourself.\n")
+         .append("- SparData's daemon is at http://127.0.0.1:").append(port).append(" (KEEL_PORT).\n")
+         .append("- A PreToolUse hook may pause a command until the person approves it in SparData. If a call is declined, that is the answer; do not route around it with another tool or a background shell.\n")
+         .append("- SparData commits your changes to git when the turn ends; do not commit yourself.\n")
          .append("- To ask the person something, use the `ask_user` tool rather than guessing.\n\n");
         if ("author".equals(mode)) author(b, job, cwd); else debug(b, job, runId, cwd);
         return b.toString();

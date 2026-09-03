@@ -44,14 +44,14 @@ export function Welcome({ onOpened }: { onOpened: () => void }) {
   return (
     <div className="welcome">
       <div className="welcome-inner">
-        <div className="row" style={{ gap: 10, marginBottom: 6 }}><Icon name="keel" size={28} /><h1 style={{ fontSize: 'var(--display)' }}>Keel</h1></div>
+        <div className="row" style={{ gap: 10, marginBottom: 6 }}><Icon name="keel" size={28} /><h1 style={{ fontSize: 'var(--display)' }}>SparData</h1></div>
         <p className="dim" style={{ fontSize: 'var(--reading)', marginTop: 0, maxWidth: '56ch' }}>
           A local-first workbench for AWS Glue. Your jobs live in a folder on this machine, as a DAG, generated PySpark
           and tests you can run without touching AWS. Connect an account when you want to import, deploy or watch runs.
         </p>
 
         <h2 style={{ marginTop: 26 }}>Choose a project folder</h2>
-        <p className="dim small" style={{ marginTop: 2 }}>Keel keeps <code>jobs/&lt;name&gt;/</code> here, one git branch per job, and its own state in <code>.keel/</code>.</p>
+        <p className="dim small" style={{ marginTop: 2 }}>SparData keeps <code>jobs/&lt;name&gt;/</code> here, one git branch per job, and its own state in <code>.keel/</code>.</p>
         <div className="row" style={{ marginTop: 10 }}>
           <input className="mono fill" placeholder="~/glue-jobs" value={dir} onChange={(e) => setDir(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && check?.ok) void open() }} />
           <button onClick={() => void pick()}><Icon name="folder" />Browse…</button>
@@ -61,8 +61,8 @@ export function Welcome({ onOpened }: { onOpened: () => void }) {
         </div>
         {check && !check.ok && <div className="note bad"><Icon name="bad" size={14} /><span><b>{check.why}</b> {check.hint}</span></div>}
         {check?.ok && check.why && <div className="note warn"><Icon name="warn" size={14} /><span><b>{check.why}</b> {check.hint}</span></div>}
-        {check?.ok && check.keel && <div className="note ok"><Icon name="ok" size={14} /><span>An existing Keel project. Your jobs and branches are still here.</span></div>}
-        {check?.ok && !check.keel && check.empty && <div className="note"><Icon name="info" size={14} /><span>Empty folder. Keel will create it and run <code>git init</code> inside it.</span></div>}
+        {check?.ok && check.keel && <div className="note ok"><Icon name="ok" size={14} /><span>An existing SparData project. Your jobs and branches are still here.</span></div>}
+        {check?.ok && !check.keel && check.empty && <div className="note"><Icon name="info" size={14} /><span>Empty folder. SparData will create it and run <code>git init</code> inside it.</span></div>}
         {err && <div className="note bad"><Icon name="bad" size={14} /><span>{err}</span></div>}
 
         {recent.length > 0 && (

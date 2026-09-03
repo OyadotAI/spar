@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SparData — The Local-First ADE for AWS Glue Studio & PySpark</title>
+  <meta name="description" content="A fast desktop ADE for AWS Glue ETL pipelines. Visual DAG authoring, generated PySpark, containerized local pytest, and built-in AI agent." />
+  <link rel="canonical" href="https://spardata.dev" />
+  
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://spardata.dev" />
+  <meta property="og:title" content="SparData — Local-First Workbench for AWS Glue" />
+  <meta property="og:description" content="Visual DAG authoring, instant local pytest in Glue 5 containers, and live CloudWatch triage." />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg: #0A0C10;
+      --surface: #11141A;
+      --surface-hover: #181D26;
+      --card: #141720;
+      --card-border: #232936;
+      --line: #1E232F;
+      --text: #F3F4F6;
+      --dim: #9CA3AF;
+      --faint: #6B7280;
+      --accent: #3B82F6;
+      --accent-glow: rgba(59, 130, 246, 0.25);
+      --add: #10B981;
+      --add-bg: rgba(16, 185, 129, 0.12);
+      --warn: #F59E0B;
+      --warn-bg: rgba(245, 158, 11, 0.12);
+      --mono: 'JetBrains Mono', monospace;
+      --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Ambient glow */
+    .glow-bg {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1200px;
+      height: 600px;
+      background: radial-gradient(circle at center, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.05) 35%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      max-width: 1160px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Header */
+    header {
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 19px;
+      letter-spacing: -0.02em;
+      color: #fff;
+      text-decoration: none;
+    }
+    .logo svg {
+      color: var(--accent);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+    }
+    .nav-links a {
+      color: var(--dim);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: #fff; }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.15s ease;
+      cursor: pointer;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: 0 4px 14px var(--accent-glow);
+    }
+    .btn-primary:hover {
+      background: #2563EB;
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: var(--surface);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+    }
+    .btn-secondary:hover {
+      background: var(--surface-hover);
+      border-color: var(--dim);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 80px 0 60px;
+      text-align: center;
+    }
+    .pill-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.3);
+      border-radius: 999px;
+      color: #93C5FD;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 24px;
+    }
+    .pill-badge .dot {
+      width: 6px;
+      height: 6px;
+      background: #60A5FA;
+      border-radius: 50%;
+    }
+    h1 {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -0.035em;
+      line-height: 1.1;
+      margin-bottom: 20px;
+      background: linear-gradient(180deg, #FFFFFF 0%, #D1D5DB 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      font-size: 19px;
+      color: var(--dim);
+      max-width: 660px;
+      margin: 0 auto 36px;
+      line-height: 1.5;
+    }
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      margin-bottom: 50px;
+    }
+
+    /* Hero Window Mockup */
+    .mockup-window {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255,255,255,0.05);
+      overflow: hidden;
+      text-align: left;
+      margin-bottom: 100px;
+    }
+    .window-header {
+      background: #0E1015;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid var(--line);
+    }
+    .window-dots {
+      display: flex;
+      gap: 6px;
+      margin-right: 20px;
+    }
+    .window-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #374151;
+    }
+    .window-title {
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--faint);
+    }
+    .window-body {
+      display: grid;
+      grid-template-columns: 200px 1fr 340px;
+      height: 480px;
+      background: #0C0E12;
+    }
+    @media (max-width: 900px) {
+      .window-body { grid-template-columns: 1fr; height: auto; }
+      .window-sidebar, .window-chat { display: none; }
+    }
+    .window-sidebar {
+      border-right: 1px solid var(--line);
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      font-size: 13px;
+    }
+    .nav-item {
+      padding: 6px 10px;
+      border-radius: 6px;
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .nav-item.active {
+      background: rgba(59, 130, 246, 0.12);
+      color: #93C5FD;
+      font-weight: 600;
+    }
+    .window-center {
+      padding: 24px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .dag-node-grid {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      padding: 30px 20px;
+      background: radial-gradient(circle, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 16px 16px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+    }
+    .node {
+      background: #171A23;
+      border: 1px solid #2D3446;
+      border-radius: 8px;
+      padding: 12px 16px;
+      width: 150px;
+      position: relative;
+    }
+    .node::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: var(--accent);
+      border-radius: 8px 0 0 8px;
+    }
+    .node.source::before { background: var(--add); }
+    .node.target::before { background: var(--warn); }
+    .node-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .node-type { font-size: 11px; color: var(--faint); font-family: var(--mono); }
+    .node-arrow { color: var(--faint); font-weight: bold; }
+    .window-code {
+      flex: 1;
+      background: #090B0E;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #D1D5DB;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+    .window-chat {
+      border-left: 1px solid var(--line);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: #0E1015;
+    }
+    .chat-bubble {
+      background: #151922;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      margin-bottom: 12px;
+    }
+    .chat-input {
+      background: #0A0C10;
+      border: 1px solid var(--card-border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--dim);
+    }
+
+    /* Features Grid */
+    .features {
+      padding: 40px 0 90px;
+    }
+    .section-head {
+      text-align: center;
+      margin-bottom: 60px;
+    }
+    .section-head h2 {
+      font-size: 36px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .section-head p {
+      color: var(--dim);
+      font-size: 17px;
+    }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 32px 28px;
+      transition: all 0.2s ease;
+    }
+    .feature-card:hover {
+      border-color: rgba(59, 130, 246, 0.4);
+      transform: translateY(-2px);
+    }
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      margin-bottom: 20px;
+    }
+    .feature-card h3 {
+      font-size: 19px;
+      font-weight: 600;
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+    .feature-card p {
+      color: var(--dim);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Comparison section */
+    .comparison-section {
+      background: var(--surface);
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 80px 0;
+    }
+    .comp-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 40px;
+      font-size: 14px;
+    }
+    .comp-table th, .comp-table td {
+      padding: 16px 20px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+    .comp-table th {
+      color: var(--dim);
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .comp-table tr:hover td {
+      background: rgba(255,255,255,0.015);
+    }
+    .check-yes { color: var(--add); font-weight: 600; }
+    .check-no { color: var(--faint); }
+
+    /* CTA */
+    .cta {
+      padding: 100px 0;
+      text-align: center;
+    }
+    .cta-card {
+      background: linear-gradient(180deg, #131722 0%, #0D1017 100%);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 60px 40px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+    }
+    .cta h2 { font-size: 40px; font-weight: 800; margin-bottom: 16px; letter-spacing: -0.02em; }
+    .cta p { color: var(--dim); font-size: 17px; max-width: 540px; margin: 0 auto 32px; }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 40px 0;
+      color: var(--faint);
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    footer a { color: var(--dim); text-decoration: none; }
+    footer a:hover { color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="glow-bg"></div>
+
+  <div class="container">
+    <header>
+      <a href="https://spardata.dev" class="logo">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 2v15"></path>
+          <path d="M7 22a4 4 0 0 1-4-4 1 1 0 0 1 1-1h16a1 1 0 0 1 1 1 4 4 0 0 1-4 4z"></path>
+          <path d="M9.159 2.46a1 1 0 0 1 1.521-.193l9.977 8.98A1 1 0 0 1 20 13H4a1 1 0 0 1-.824-1.567z"></path>
+        </svg>
+        <span>SparData</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#comparison">Why SparData</a>
+        <a href="https://github.com/OyadotAI/spar">GitHub</a>
+        <a href="https://github.com/OyadotAI/spar/releases" class="btn btn-primary" style="padding: 6px 14px; font-size: 13px;">Get SparData</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="pill-badge">
+        <span class="dot"></span>
+        <span>Local-first ADE for AWS Glue Studio</span>
+      </div>
+      <h1>Build Glue ETL pipelines.<br/>Test locally. Zero cloud bills.</h1>
+      <p>
+        SparData brings visual DAG authoring, generated PySpark, containerized local pytest, and built-in AI debugging straight to your desktop.
+      </p>
+      <div class="hero-actions">
+        <a href="https://github.com/OyadotAI/spar/releases" class="btn btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Desktop App
+        </a>
+        <a href="https://github.com/OyadotAI/spar" class="btn btn-secondary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+
+      <!-- App Mockup -->
+      <div class="mockup-window">
+        <div class="window-header">
+          <div class="window-dots">
+            <div class="window-dot" style="background:#EF4444;"></div>
+            <div class="window-dot" style="background:#F59E0B;"></div>
+            <div class="window-dot" style="background:#10B981;"></div>
+          </div>
+          <div class="window-title">SparData — orders_daily_etl (Visual)</div>
+        </div>
+        <div class="window-body">
+          <div class="window-sidebar">
+            <div class="nav-item active">Visual DAG</div>
+            <div class="nav-item">Script (job.py)</div>
+            <div class="nav-item">Runs & Logs</div>
+            <div class="nav-item">Schedules</div>
+            <div class="nav-item">Job details</div>
+            <div class="nav-item">Diff & Changes</div>
+          </div>
+          <div class="window-center">
+            <div class="dag-node-grid">
+              <div class="node source">
+                <div class="node-title">orders_s3</div>
+                <div class="node-type">S3 / Parquet</div>
+              </div>
+              <div class="node-arrow">→</div>
+              <div class="node">
+                <div class="node-title">filter_active</div>
+                <div class="node-type">Filter</div>
+              </div>
+              <div class="node-arrow">→</div>
+              <div class="node target">
+                <div class="node-title">analytics_out</div>
+                <div class="node-type">Glue Catalog</div>
+              </div>
+            </div>
+            <div class="window-code">
+<span style="color:#60A5FA;">def</span> <span style="color:#FBBF24;">filter_active</span>(glueContext, df) -&gt; DynamicFrame:
+    <span style="color:#6B7280;"># Generated from dag.json</span>
+    <span style="color:#F472B6;">return</span> Filter.apply(frame=df, f=<span style="color:#F472B6;">lambda</span> row: row[<span style="color:#34D399;">"status"</span>] == <span style="color:#34D399;">"COMPLETED"</span>)
+            </div>
+          </div>
+          <div class="window-chat">
+            <div>
+              <div style="font-size:11px; font-weight:600; color:#9CA3AF; text-transform:uppercase; margin-bottom:12px;">Authoring Agent</div>
+              <div class="chat-bubble">
+                <b style="color:#60A5FA;">SparData:</b> I updated the filter predicate and scaffolded <code>test_filter_active.py</code> with 3 test cases. Local pytest passed in 1.4s.
+              </div>
+            </div>
+            <div class="chat-input">Describe a pipeline change… (⌘↵)</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features">
+      <div class="section-head">
+        <h2>Built for high-velocity data engineering</h2>
+        <p>Everything you need to build, test, and ship Glue pipelines without waiting on cloud queues.</p>
+      </div>
+      <div class="grid-3">
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="m9 9 6 6m0-6-6 6"/></svg>
+          </div>
+          <h3>Visual DAG + PySpark Co-generation</h3>
+          <p>Edit visual nodes or let the agent modify the pipeline. SparData maintains 100% Glue Studio parity and compiles directly into clean, tested <code>job.py</code> code.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <h3>Local PySpark & Pytest</h3>
+          <p>Run your pipeline locally in AWS's official Glue 5 container (<code>aws-glue-libs:5</code>). Verify schema conversions, node transformations, and edge cases in seconds.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>
+          </div>
+          <h3>Zero-API-Key AI Agent</h3>
+          <p>Uses your own <code>claude</code> CLI directly. No API key exposure, no lock-in. Every risky filesystem or AWS write blocks on in-app human approval cards.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          </div>
+          <h3>Immediate Spark UI</h3>
+          <p>Spin up Spark's official History Server on local engine event logs with zero S3 latency, or stream CloudWatch event logs from past cloud runs.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Safe Cloud Deployments</h3>
+          <p>Every AWS write is guarded with explicit diff review. SparData manages versioning, S3 script locations, and EventBridge push subscriptions automatically.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+          </div>
+          <h3>Live CloudWatch Triage</h3>
+          <p>Automated root-cause analysis for failed DPU jobs. Isolates driver OutOfMemory exceptions, schema mismatches, and IAM permission faults instantly.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Comparison -->
+    <section id="comparison" class="comparison-section">
+      <div class="container">
+        <div class="section-head">
+          <h2>Why developers choose SparData</h2>
+          <p>Compare the traditional AWS Glue Studio workflow with SparData's local-first approach.</p>
+        </div>
+
+        <table class="comp-table">
+          <thead>
+            <tr>
+              <th>Capability</th>
+              <th>AWS Glue Studio Console</th>
+              <th>SparData (spardata.dev)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Local Testing</strong></td>
+              <td class="check-no">None (Cloud only, bills per DPU)</td>
+              <td class="check-yes">Instant pytest in official Glue 5 container</td>
+            </tr>
+            <tr>
+              <td><strong>Visual + Code Sync</strong></td>
+              <td class="check-no">Locked editor (Switching loses visual DAG)</td>
+              <td class="check-yes">Bi-directional visual DAG + generated PySpark</td>
+            </tr>
+            <tr>
+              <td><strong>Feedback Loop</strong></td>
+              <td class="check-no">2–5 minutes per cloud run start</td>
+              <td class="check-yes">&lt;2 seconds local test iteration</td>
+            </tr>
+            <tr>
+              <td><strong>AI Assistance</strong></td>
+              <td class="check-no">Generic suggestions</td>
+              <td class="check-yes">Claude Code agent with local context & diffs</td>
+            </tr>
+            <tr>
+              <td><strong>Spark UI</strong></td>
+              <td class="check-no">Requires live session billing</td>
+              <td class="check-yes">Free local Spark History Server</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="cta">
+      <div class="cta-card">
+        <h2>Start building Glue pipelines locally</h2>
+        <p>Available on macOS, Linux, and Windows. 100% open source under the MIT license.</p>
+        <div class="hero-actions" style="margin-bottom:0;">
+          <a href="https://github.com/OyadotAI/spar/releases" class="btn btn-primary">Download SparData</a>
+          <a href="https://github.com/OyadotAI/spar" class="btn btn-secondary">View Source Code</a>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <div>&copy; 2026 SparData (spardata.dev). Built by <a href="https://github.com/OyadotAI">Oya</a>.</div>
+      <div style="display:flex; gap:18px;">
+        <a href="https://github.com/OyadotAI/spar">GitHub</a>
+        <a href="https://github.com/OyadotAI/spar/blob/main/LICENSE">MIT License</a>
+      </div>
+    </footer>
+  </div>
+</body>
+</html>
