@@ -51,7 +51,7 @@ export function Welcome({ onOpened }: { onOpened: () => void }) {
         </p>
 
         <h2 style={{ marginTop: 26 }}>Choose a project folder</h2>
-        <p className="dim small" style={{ marginTop: 2 }}>SparData keeps <code>jobs/&lt;name&gt;/</code> here, one git branch per job, and its own state in <code>.keel/</code>.</p>
+        <p className="dim small" style={{ marginTop: 2 }}>SparData keeps <code>jobs/&lt;name&gt;/</code> here, one git branch per job, and its own state in <code>.spar/</code>.</p>
         <div className="row" style={{ marginTop: 10 }}>
           <input className="mono fill" placeholder="~/glue-jobs" value={dir} onChange={(e) => setDir(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && check?.ok) void open() }} />
           <button onClick={() => void pick()}><Icon name="folder" />Browse…</button>

@@ -46,8 +46,8 @@ class ApprovalsTest {
         a.answer(new Approvals.Answer(q.get(0).id(), "allow", List.of("Bash(docker*)"), "project", null));
         assertThat(body.get()).contains("\"permissionDecision\":\"allow\"");
         assertThat(a.projectRules()).contains("Bash(docker*)");
-        assertThat(Files.readString(dir.resolve(".keel/permissions.json"))).contains("Bash(docker*)");
-        assertThat(Files.readString(dir.resolve(".keel/.gitignore"))).isEqualTo("*\n"); // never in the project's commits
+        assertThat(Files.readString(dir.resolve(".spar/permissions.json"))).contains("Bash(docker*)");
+        assertThat(Files.readString(dir.resolve(".spar/.gitignore"))).isEqualTo("*\n"); // never in the project's commits
         // the same command is now allowed without asking
         assertThat(a.ask("orders", in).getBody()).contains("allowed by rule");
         assertThat(a.poll("orders")).isEmpty();

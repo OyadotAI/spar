@@ -57,8 +57,10 @@ public class Project {
         List<Map<String, Object>> out = new ArrayList<>();
         List<Path> roots = new ArrayList<>();
         roots.add(state.project().resolve("jobs"));
-        Path wts = state.keelDir().resolve("worktrees");
+        Path wts = state.sparDir().resolve("worktrees");
+        Path legacyWts = state.project().resolve(".keel").resolve("worktrees");
         if (Files.isDirectory(wts)) { try (Stream<Path> s = Files.list(wts)) { s.forEach(w -> roots.add(w.resolve("jobs"))); } catch (IOException ignored) { } }
+        if (Files.isDirectory(legacyWts)) { try (Stream<Path> s = Files.list(legacyWts)) { s.forEach(w -> roots.add(w.resolve("jobs"))); } catch (IOException ignored) { } }
         Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
         for (Path r : roots) {
             if (!Files.isDirectory(r)) continue;

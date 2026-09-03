@@ -90,7 +90,7 @@ Most AI coding tools charge metered API token markups or require enterprise API 
 - Isolates driver OutOfMemory (OOM) exceptions, schema mismatches, and IAM permission faults in one click.
 
 ### 🛡️ 6. Isolated Git Branch & Worktree per Job
-- Every job gets its own isolated branch and worktree (`.keel/worktrees/<name>`).
+- Every job gets its own isolated branch and worktree (`.spar/worktrees/<name>`).
 - Safely experiment on separate drafts without polluting your main branch.
 - Unified diff view displays uncommitted changes before pushing.
 

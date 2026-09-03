@@ -29,7 +29,9 @@ public class State {
     public State(@Value("${keel.project}") String project, ObjectMapper json) {
         this.project = Path.of(project == null || project.isBlank() ? "." : project).toAbsolutePath().normalize();
         this.placeholder = project == null || project.isBlank() || isUnsafe(this.project);
-        this.file = this.project.resolve(".keel").resolve("state.json");
+        Path sparState = this.project.resolve(".spar").resolve("state.json");
+        Path legacyState = this.project.resolve(".keel").resolve("state.json");
+        this.file = Files.exists(sparState) || !Files.exists(legacyState) ? sparState : legacyState;
         this.json = json;
         this.data = load();
     }
@@ -42,22 +44,24 @@ public class State {
     public boolean hasProject() { return !placeholder; }
 
     /**
-     * Somewhere Keel must never write. It creates `jobs/`, `.keel/` and a git repository in the
+     * Somewhere SparData must never write. It creates `jobs/`, `.spar/` and a git repository in the
      * project, so a home directory or a filesystem root is a refusal, not a default.
      */
     static boolean isUnsafe(Path p) {
         Path home = Path.of(System.getProperty("user.home", "/")).toAbsolutePath().normalize();
         return p.equals(home) || p.getParent() == null || p.equals(p.getRoot());
     }
-    /** `.keel/` with the `.gitignore` that keeps Keel's records out of the project's commits, made on first touch. */
-    public Path keelDir() {
-        Path d = project().resolve(".keel");
+    /** `.spar/` with the `.gitignore` that keeps SparData's records out of the project's commits, made on first touch. */
+    public Path sparDir() {
+        Path d = project().resolve(".spar");
         Path gi = d.resolve(".gitignore");
         if (!Files.exists(gi)) {
             try { Files.createDirectories(d); Files.writeString(gi, "*\n"); } catch (IOException ignored) { /* a read-only project still works */ }
         }
         return d;
     }
+
+    public Path keelDir() { return sparDir(); }
 
     public synchronized String profile() { return text("profile"); }
     public synchronized String region() { return text("region"); }

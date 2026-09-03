@@ -36,7 +36,11 @@ public class JobsCache {
 
     public JobsCache(State state, ObjectMapper json) { this.state = state; this.json = json; }
 
-    private Path file() { return state.project().resolve(".keel").resolve("cache").resolve("jobs.json"); }
+    private Path file() {
+        Path sparCache = state.project().resolve(".spar").resolve("cache").resolve("jobs.json");
+        Path legacyCache = state.project().resolve(".keel").resolve("cache").resolve("jobs.json");
+        return Files.exists(sparCache) || !Files.exists(legacyCache) ? sparCache : legacyCache;
+    }
 
     /** The listing from the last run of the app, drawn before AWS has answered anything. */
     @PostConstruct

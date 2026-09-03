@@ -5,7 +5,8 @@ app/node_modules/
 app/out/
 app/dist/
 app/release/
-# keel per-project state (never in this repo)
+# spar per-project state (never in this repo)
+.spar/
 .keel/
 .DS_Store
 *.log

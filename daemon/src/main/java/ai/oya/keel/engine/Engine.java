@@ -119,7 +119,7 @@ public class Engine {
         if (up() && alive()) return;
         container = null; port = 0;
         Path root = state.project().toAbsolutePath().normalize();
-        Path engineDir = root.resolve(".keel").resolve("engine");
+        Path engineDir = root.resolve(".spar").resolve("engine");
         writeResources(engineDir);
         if (!Proc.run(null, 10, null, "docker", "info").ok())
             throw new ApiError(503, "Docker is not running", "start Docker Desktop; the local engine runs in " + IMAGE);
@@ -130,7 +130,7 @@ public class Engine {
             starting = null;
             if (!pull.ok()) throw new ApiError(503, "could not pull " + IMAGE, pull.stderr().strip());
         }
-        String name = "keel-engine-" + Integer.toHexString(root.toString().hashCode());
+        String name = "spar-engine-" + Integer.toHexString(root.toString().hashCode());
         Proc.run(null, 30, null, "docker", "rm", "-f", name); // a survivor from a previous daemon
         // The image already sets spark.eventLog.enabled with a log dir inside the container; mounting
         // that dir out is what gives a local run a real Spark UI, with no S3 and no --enable-spark-ui.
@@ -145,7 +145,7 @@ public class Engine {
         if (Files.isDirectory(aws)) { cmd.add("-v"); cmd.add(aws + ":/home/hadoop/.aws:ro"); }
         if (state.profile() != null) { cmd.add("-e"); cmd.add("AWS_PROFILE=" + state.profile()); }
         if (state.region() != null) { cmd.add("-e"); cmd.add("AWS_REGION=" + state.region()); }
-        cmd.add(IMAGE); cmd.add("-c"); cmd.add("python3 .keel/engine/driver.py");
+        cmd.add(IMAGE); cmd.add("-c"); cmd.add("python3 .spar/engine/driver.py");
         starting = "starting the local engine";
         events.emit("engine", Map.of("state", "starting"));
         Proc.Result run = Proc.run(root, 120, null, cmd.toArray(String[]::new));
@@ -206,10 +206,10 @@ public class Engine {
     }
 
     /** Spark event logs from local runs, on the host. The history server reads this directory. */
-    public Path eventsDir() { return state.project().toAbsolutePath().normalize().resolve(".keel").resolve("spark-events"); }
+    public Path eventsDir() { return state.project().toAbsolutePath().normalize().resolve(".spar").resolve("spark-events"); }
 
     /** Where the container finds the source shim when the engine is running the script. */
-    public static final String SHIM_DIR = "/home/hadoop/workspace/.keel/engine";
+    public static final String SHIM_DIR = "/home/hadoop/workspace/.spar/engine";
 
     /**
      * Copies `keel_local.py` next to the job. The engine reads it from `.keel/engine`, but a

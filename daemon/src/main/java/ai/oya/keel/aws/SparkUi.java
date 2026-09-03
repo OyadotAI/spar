@@ -129,7 +129,7 @@ public class SparkUi {
         // ships no S3A filesystem, so `s3a://` inside the container dies with a ClassNotFound before
         // it binds a port — and fetching them means the server starts the same way for a cloud run
         // as for a local one, with the daemon's own credentials (SSO included).
-        Path holder = state.keelDir().resolve("spark-events-cloud");
+        Path holder = state.sparDir().resolve("spark-events-cloud");
         Path local = holder.resolve(id).normalize();
         if (!local.startsWith(holder.normalize())) throw ApiError.badRequest("that is not a Glue run id");
         long bytes = fetch(dir, keys, local);

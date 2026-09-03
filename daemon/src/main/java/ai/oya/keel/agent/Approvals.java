@@ -154,7 +154,7 @@ public class Approvals {
         return out;
     }
 
-    private Path permissionsFile() { return state.keelDir().resolve("permissions.json"); }
+    private Path permissionsFile() { return state.sparDir().resolve("permissions.json"); }
 
     private synchronized ObjectNode permissions() {
         try {

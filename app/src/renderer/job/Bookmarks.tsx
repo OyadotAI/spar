@@ -64,7 +64,7 @@ export function Bookmarks({ job, enabled }: { job: string; enabled: boolean }) {
         <b>Local simulation</b> — {local?.empty !== false
           ? 'nothing consumed yet. A local run with “simulate bookmarks” on records the files it reads.'
           : `${localFiles.length} source${localFiles.length > 1 ? 's' : ''} recorded; those files are skipped on the next local run.`}
-        <div className="faint">Keel’s own, kept in .keel/bookmarks. It never touches the bookmark above.</div>
+        <div className="faint">SparData’s own, kept in .spar/bookmarks. It never touches the bookmark above.</div>
       </div>
     </div>
   )

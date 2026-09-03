@@ -20,8 +20,12 @@ public class Lanes {
     public Lanes(State state) { this.state = state; }
 
     public Path root() { return state.project(); }
-    public Path dir(String job) { return state.keelDir().resolve("worktrees").resolve(job); }
-    public static String branch(String job) { return "keel/" + job; }
+    public Path dir(String job) {
+        Path sparDir = state.sparDir().resolve("worktrees").resolve(job);
+        Path legacyDir = state.project().resolve(".keel").resolve("worktrees").resolve(job);
+        return Files.isDirectory(sparDir) || !Files.isDirectory(legacyDir) ? sparDir : legacyDir;
+    }
+    public static String branch(String job) { return "spar/" + job; }
 
     public boolean exists(String job) { return Files.isDirectory(dir(job).resolve(".git")) || Files.isRegularFile(dir(job).resolve(".git")); }
 
@@ -49,15 +53,19 @@ public class Lanes {
         } catch (IOException e) { throw new ApiError(500, "cannot create " + d.getParent()); }
         Git.clearStaleLocks(root);
         Proc.git(root, "worktree", "prune");
-        boolean branchExists = Proc.git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch(job)).ok();
+        boolean branchExists = Proc.git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch(job)).ok()
+                || Proc.git(root, "rev-parse", "--verify", "--quiet", "refs/heads/keel/" + job).ok();
+        String targetBranch = Proc.git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch(job)).ok()
+                ? branch(job)
+                : Proc.git(root, "rev-parse", "--verify", "--quiet", "refs/heads/keel/" + job).ok() ? "keel/" + job : branch(job);
         Proc.Result r = branchExists
-                ? Proc.git(root, "worktree", "add", d.toString(), branch(job))
-                : Proc.git(root, "worktree", "add", "-b", branch(job), d.toString(), "HEAD");
+                ? Proc.git(root, "worktree", "add", d.toString(), targetBranch)
+                : Proc.git(root, "worktree", "add", "-b", targetBranch, d.toString(), "HEAD");
         if (!r.ok() && r.stderr().contains("lock': File exists")) {
             Git.clearStaleLocks(root);
             r = branchExists
-                    ? Proc.git(root, "worktree", "add", d.toString(), branch(job))
-                    : Proc.git(root, "worktree", "add", "-b", branch(job), d.toString(), "HEAD");
+                    ? Proc.git(root, "worktree", "add", d.toString(), targetBranch)
+                    : Proc.git(root, "worktree", "add", "-b", targetBranch, d.toString(), "HEAD");
         }
         if (!r.ok()) throw new ApiError(500, "git worktree add failed: " + r.stderr().strip());
         Git.clearStaleLocks(d);

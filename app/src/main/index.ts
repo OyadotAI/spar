@@ -42,8 +42,8 @@ async function writeProject(p: string): Promise<void> {
 export type ProjectCheck = { ok: boolean; why?: string; hint?: string; empty?: boolean; git?: boolean; keel?: boolean }
 
 /**
- * A project directory is somewhere Keel may create `jobs/`, `.keel/` and a git repository. Refusing
- * `$HOME` and filesystem roots is the whole point: pointed at `$HOME`, the first job Keel creates
+ * A project directory is somewhere SparData may create `jobs/`, `.spar/` and a git repository. Refusing
+ * `$HOME` and filesystem roots is the whole point: pointed at `$HOME`, the first job SparData creates
  * runs `git init` and `git add -A` over everything the user owns.
  */
 async function check(dir: string): Promise<ProjectCheck> {
@@ -51,7 +51,7 @@ async function check(dir: string): Promise<ProjectCheck> {
   const { resolve, parse } = await import('node:path')
   const p = resolve(dir)
   if (!p) return { ok: false, why: 'No folder chosen.' }
-  if (p === app.getPath('home')) return { ok: false, why: 'That is your home folder.', hint: 'Keel creates jobs/ and .keel/ and a git repository inside the project. Pick or make a folder for your Glue jobs, such as ~/glue-jobs.' }
+  if (p === app.getPath('home')) return { ok: false, why: 'That is your home folder.', hint: 'SparData creates jobs/ and .spar/ and a git repository inside the project. Pick or make a folder for your Glue jobs, such as ~/glue-jobs.' }
   if (p === parse(p).root) return { ok: false, why: 'That is the root of the filesystem.', hint: 'Pick a folder for your Glue jobs.' }
   for (const d of ['desktop', 'documents', 'downloads'] as const) {
     try { if (p === app.getPath(d)) return { ok: false, why: `That is your ${d} folder.`, hint: 'Make a folder inside it instead.' } } catch { /* not on this OS */ }
@@ -63,10 +63,10 @@ async function check(dir: string): Promise<ProjectCheck> {
   const entries = await readdir(p)
   const visible = entries.filter((e) => !e.startsWith('.'))
   const git = entries.includes('.git')
-  const keel = entries.includes('.keel') || visible.includes('jobs')
+  const keel = entries.includes('.spar') || entries.includes('.keel') || visible.includes('jobs')
   if (keel || git || visible.length === 0) return { ok: true, empty: visible.length === 0, git, keel }
   return { ok: true, why: `${visible.length} other item${visible.length > 1 ? 's are' : ' is'} already here.`,
-    hint: 'Keel will add jobs/ and .keel/ and, if there is no repository yet, run git init here. Fine for an existing repo; pick an empty folder otherwise.', git, keel }
+    hint: 'SparData will add jobs/ and .spar/ and, if there is no repository yet, run git init here. Fine for an existing repo; pick an empty folder otherwise.', git, keel }
 }
 
 /**
