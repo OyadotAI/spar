@@ -81,10 +81,23 @@ public final class Git {
      * signing prompt. Returns the commit, or null when there was nothing to commit.
      */
     public static String commitAll(Path dir, String message) {
-        if (!Proc.git(dir, "add", "-A").ok()) return null;
+        clearStaleLocks(dir);
+        Proc.Result add = Proc.git(dir, "add", "-A");
+        if (!add.ok()) {
+            if (add.stderr().contains("index.lock': File exists") || add.stderr().contains("lock': File exists")) {
+                clearStaleLocks(dir);
+                add = Proc.git(dir, "add", "-A");
+            }
+            if (!add.ok()) return null;
+        }
         if (Proc.git(dir, "diff", "--cached", "--quiet").ok()) return null;
         Proc.Result r = Proc.git(dir, "-c", "commit.gpgsign=false", "-c", "user.useConfigOnly=false",
                 "commit", "-q", "--no-verify", "-m", message);
+        if (!r.ok() && (r.stderr().contains("index.lock': File exists") || r.stderr().contains("lock': File exists"))) {
+            clearStaleLocks(dir);
+            r = Proc.git(dir, "-c", "commit.gpgsign=false", "-c", "user.useConfigOnly=false",
+                    "commit", "-q", "--no-verify", "-m", message);
+        }
         if (!r.ok()) {
             if (r.stderr().contains("Please tell me who you are") || r.stderr().contains("Author identity unknown")) {
                 Proc.Result again = Proc.git(dir, "-c", "commit.gpgsign=false", "-c", "user.name=Keel", "-c", "user.email=keel@localhost",
@@ -93,6 +106,20 @@ public final class Git {
             } else throw new ApiError(500, "commit failed: " + r.stderr().strip());
         }
         return head(dir);
+    }
+
+    public static void clearStaleLocks(Path dir) {
+        for (String lockName : List.of("index.lock", "HEAD.lock", "config.lock")) {
+            try {
+                Proc.Result r = Proc.git(dir, "rev-parse", "--git-path", lockName);
+                if (r.ok()) {
+                    String p = r.stdout().strip();
+                    Path lock = Path.of(p);
+                    if (!lock.isAbsolute()) lock = dir.resolve(lock);
+                    Files.deleteIfExists(lock);
+                }
+            } catch (Exception ignored) {}
+        }
     }
 
     public static String head(Path dir) {

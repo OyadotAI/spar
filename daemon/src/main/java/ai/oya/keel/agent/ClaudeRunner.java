@@ -4,6 +4,7 @@ import ai.oya.keel.ApiError;
 import ai.oya.keel.Events;
 import ai.oya.keel.Proc;
 import ai.oya.keel.State;
+import ai.oya.keel.Tools;
 import ai.oya.keel.git.Git;
 import ai.oya.keel.git.Lanes;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -49,13 +50,14 @@ public class ClaudeRunner {
     private final ObjectMapper json;
     private final WebServerApplicationContext server;
     private final List<AfterTurn> afterTurns;
+    private final Tools tools;
     private final Map<String, Running> running = new ConcurrentHashMap<>();
     private final Map<String, String> sessions = new ConcurrentHashMap<>();
 
     public ClaudeRunner(State state, Events events, Approvals approvals, Turns turns, Lanes lanes, Prompts prompts,
-                        ObjectMapper json, WebServerApplicationContext server, List<AfterTurn> afterTurns) {
+                        ObjectMapper json, WebServerApplicationContext server, List<AfterTurn> afterTurns, Tools tools) {
         this.state = state; this.events = events; this.approvals = approvals; this.turns = turns; this.lanes = lanes;
-        this.prompts = prompts; this.json = json; this.server = server; this.afterTurns = afterTurns;
+        this.prompts = prompts; this.json = json; this.server = server; this.afterTurns = afterTurns; this.tools = tools;
     }
 
     private int port() { return server.getWebServer().getPort(); }
@@ -142,6 +144,12 @@ public class ClaudeRunner {
         env.put("KEEL_PORT", Integer.toString(port()));
         env.put("KEEL_JOB", job);
 
+        if (!tools.has("claude")) {
+            send(e, gone, "fatal", Map.of("text", "could not start claude: Claude Code is not installed or not on PATH. Install: npm i -g @anthropic-ai/claude-code"));
+            e.complete();
+            return;
+        }
+
         Process p;
         try { p = Proc.start(cwd, env, cmd.toArray(String[]::new)); }
         catch (IOException ex) {
@@ -151,10 +159,12 @@ public class ClaudeRunner {
         }
         running.put(lane, new Running(p, rec.turn, gone));
         Deque<String> stderr = new ArrayDeque<>();
+        Deque<String> stdoutTail = new ArrayDeque<>();
         Thread te = Proc.drain(p.getErrorStream(), l -> { synchronized (stderr) { stderr.add(l); if (stderr.size() > 200) stderr.removeFirst(); } });
         Map<String, Object> usage = new LinkedHashMap<>();
         Thread to = Proc.drain(p.getInputStream(), line -> {
             if (gone.get()) { interrupt(p); return; }
+            synchronized (stdoutTail) { stdoutTail.add(line); if (stdoutTail.size() > 20) stdoutTail.removeFirst(); }
             sendRaw(e, gone, "msg", line);
             decode(json, line, usage, sid -> { sessions.put(lane, sid); rec.session = sid; });
         });
@@ -164,9 +174,22 @@ public class ClaudeRunner {
         running.remove(lane);
 
         if (code != 0) {
-            List<String> tail; synchronized (stderr) { tail = new ArrayList<>(stderr); }
-            String text = tail.isEmpty() ? "claude exited with code " + code + " and printed nothing. Try `claude -p hi` in the terminal."
-                    : "claude exited with code " + code + ":\n" + String.join("\n", tail.subList(Math.max(0, tail.size() - 8), tail.size()));
+            List<String> combined = new ArrayList<>();
+            synchronized (stdoutTail) {
+                for (String l : stdoutTail) {
+                    if (!l.isBlank() && !l.startsWith("{")) combined.add(l);
+                }
+            }
+            synchronized (stderr) {
+                for (String l : stderr) {
+                    if (!l.isBlank()) combined.add(l);
+                }
+            }
+            String text = combined.isEmpty() ? "claude exited with code " + code + " and printed nothing. Try `claude -p hi` in the terminal."
+                    : String.join("\n", combined.subList(Math.max(0, combined.size() - 8), combined.size()));
+            if (!text.toLowerCase().contains("claude exited") && !text.toLowerCase().contains("not logged in")) {
+                text = "claude exited with code " + code + ":\n" + text;
+            }
             rec.failed = Map.of("code", code, "tail", text);
             send(e, gone, "fatal", Map.of("text", text));
         }

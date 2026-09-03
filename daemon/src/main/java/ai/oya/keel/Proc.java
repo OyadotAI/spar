@@ -53,7 +53,9 @@ public final class Proc {
         ProcessBuilder b = new ProcessBuilder(args);
         if (dir != null) b.directory(dir.toFile());
         if (env != null) b.environment().putAll(env);
-        return b.start();
+        Process p = b.start();
+        try { p.getOutputStream().close(); } catch (IOException ignored) {}
+        return p;
     }
 
     /** Reads a stream line by line on a virtual thread. Undecodable bytes are replaced, never fatal. */

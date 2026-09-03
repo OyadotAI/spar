@@ -1,4 +1,4 @@
-export type Tool = { installed: boolean; version?: string }
+export type Tool = { installed: boolean; version?: string; loggedIn?: boolean; authMethod?: string }
 export type Profile = { name: string; region?: string; sso: boolean }
 export type StateReply = {
   project: string | null; hasProject?: boolean; profile?: string; region?: string; scriptBucket?: string; installId: string; os: string

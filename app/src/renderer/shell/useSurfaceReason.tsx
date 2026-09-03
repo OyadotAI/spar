@@ -21,21 +21,21 @@ export function useSurfaceReason(what: string): ReactNode | null {
   const auth = useGlue((s) => s.auth)
   const openTerminal = useTerminal((s) => s.openWith)
 
-  if (connection === 'dead') return <EmptyState title="The daemon stopped">{deathReason ?? 'It exited without saying why. Restarting Keel starts it again.'}</EmptyState>
-  if (connection === 'reconnecting') return <EmptyState title="Reconnecting to the daemon">Nothing is lost — {what} come back on their own as soon as it answers.</EmptyState>
-  if (!state || connection !== 'connected') return <EmptyState title="Starting…">Waiting for the daemon.</EmptyState>
+  if (connection === 'dead') return <EmptyState icon="bad" title="The daemon stopped">{deathReason ?? 'It exited without saying why. Restarting Keel starts it again.'}</EmptyState>
+  if (connection === 'reconnecting') return <EmptyState icon="spinner" title="Reconnecting to the daemon">Nothing is lost — {what} come back on their own as soon as it answers.</EmptyState>
+  if (!state || connection !== 'connected') return <EmptyState icon="spinner" title="Starting…">Waiting for the daemon.</EmptyState>
   if (!state.tools.aws.installed) return (
-    <EmptyState title="The aws CLI is not on PATH">
+    <EmptyState icon="warn" title="The aws CLI is not on PATH">
       Keel uses it to read {what}. Install it from aws.amazon.com/cli, then restart Keel.
     </EmptyState>)
   if (auth.kind === 'noProfile') return (
-    <EmptyState title="No AWS profile selected"
+    <EmptyState icon="gear" title="No AWS profile selected"
       actions={<button className="primary" onClick={() => toggle('showSettings', true)}><Icon name="gear" />Connect AWS…</button>}>
       {what[0]!.toUpperCase() + what.slice(1)} live in your AWS account, so this screen needs a profile.
       Building a pipeline, generating its code and running it on samples all work without one.
     </EmptyState>)
   if (auth.kind === 'expired') return (
-    <EmptyState title={`Sign in to ${state.profile}`}
+    <EmptyState icon="terminal" title={`Sign in to ${state.profile}`}
       actions={<button className="primary" onClick={() => openTerminal(auth.fix)}><Icon name="terminal" />Sign in</button>}>
       The SSO session has expired. Signing in runs <code>{auth.fix}</code> in the terminal;
       the {what} fill in on their own once it succeeds.

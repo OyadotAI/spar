@@ -145,7 +145,8 @@ button.pill { border: none; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; display: inline-block; flex: none; }
 .dot.live { animation: pulse 1.4s ease-in-out infinite; } @keyframes pulse { 50% { opacity: .3; } }
 .card { background: var(--raised); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--e1); }
-.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s3); height: 100%; color: var(--dim); text-align: center; padding: var(--s6); }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--s2); height: 100%; color: var(--dim); text-align: center; padding: var(--s6); }
+.empty-icon { width: 44px; height: 44px; border-radius: var(--r-lg); background: var(--chrome); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--dim); margin-bottom: var(--s1); }
 .empty h2 { color: var(--text); } .empty p { margin: 0; max-width: 52ch; font-size: var(--reading); line-height: 1.55; }
 .split { display: flex; height: 100%; min-height: 0; } .split.v { flex-direction: column; }
 .split > .handle { flex: 0 0 1px; background: var(--line); position: relative; z-index: 2; }

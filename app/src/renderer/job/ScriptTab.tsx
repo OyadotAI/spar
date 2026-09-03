@@ -57,6 +57,6 @@ export function ScriptTab({ job }: { job: string }) {
   return (
     <SplitPane storageKey="script.chat" initial={0.72} min={420} minB={320}
       a={left}
-      b={<ChatRail job={job} mode="author" placeholder="Ask for a change to this pipeline…" composerOnTop />} />
+      b={<ChatRail job={job} mode="author" placeholder="Ask for a change to this pipeline…" />} />
   )
 }

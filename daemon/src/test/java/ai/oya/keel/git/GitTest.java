@@ -28,5 +28,12 @@ class GitTest {
         assertThat(commit).isNotNull();
         assertThat(Git.commitAll(dir, "keel: nothing")).isNull();
         assertThat(Proc.git(dir, "log", "--oneline").stdout()).contains("keel: test");
+
+        // Stale index.lock is cleared automatically and commit succeeds
+        Files.writeString(dir.resolve("a.txt"), "three\n");
+        Files.writeString(dir.resolve(".git/index.lock"), "stale lock file");
+        String recoveredCommit = Git.commitAll(dir, "keel: recovered lock");
+        assertThat(recoveredCommit).isNotNull();
+        assertThat(Files.exists(dir.resolve(".git/index.lock"))).isFalse();
     }
 }

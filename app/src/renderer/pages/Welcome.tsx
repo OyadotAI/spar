@@ -3,7 +3,7 @@ import { Icon } from '@/shell/Icon'
 import { useApp } from '@/stores/app'
 
 type Check = { ok: boolean; why?: string; hint?: string; empty?: boolean; git?: boolean; keel?: boolean }
-type Tool = { installed: boolean; version?: string }
+type Tool = { installed: boolean; version?: string; loggedIn?: boolean; authMethod?: string }
 
 const FIX: Record<string, { what: string; how: string; needed: string }> = {
   docker: { what: 'Docker', how: 'docker.com/products/docker-desktop', needed: 'runs your job locally: previews, tests, the local Spark UI' },
@@ -79,13 +79,24 @@ export function Welcome({ onOpened }: { onOpened: () => void }) {
         {known && <div className="tool-list">
           {Object.entries(FIX).map(([k, f]) => {
             const t = tools[k]
-            const ok = t?.installed
+            const notLoggedIn = k === 'claude' && t?.installed && t?.loggedIn === false
+            const ok = t?.installed && !notLoggedIn
             return (
               <div key={k} className="tool">
-                <Icon name={ok ? 'ok' : k === 'aws' || k === 'claude' ? 'info' : 'warn'} size={15} style={{ color: ok ? 'var(--add)' : k === 'docker' || k === 'git' ? 'var(--warn)' : 'var(--dim)' }} />
+                <Icon name={ok ? 'ok' : notLoggedIn ? 'warn' : k === 'aws' || k === 'claude' ? 'info' : 'warn'} size={15} style={{ color: ok ? 'var(--add)' : notLoggedIn || k === 'docker' || k === 'git' ? 'var(--warn)' : 'var(--dim)' }} />
                 <div>
-                  <div className="row" style={{ gap: 6 }}><b>{f.what}</b>{ok ? <span className="faint mono small">{t?.version}</span> : <span className="faint small">not found</span>}</div>
-                  <div className="dim small">{ok ? f.needed : `Needed for ${f.needed}. Install: ${f.how}`}</div>
+                  <div className="row" style={{ gap: 6 }}>
+                    <b>{f.what}</b>
+                    {t?.installed ? <span className="faint mono small">{t?.version}</span> : <span className="faint small">not found</span>}
+                    {notLoggedIn && <span className="pill warn">not signed in</span>}
+                  </div>
+                  <div className="dim small">
+                    {notLoggedIn
+                      ? 'Installed, but not signed in. Run claude login in the terminal to enable the agent.'
+                      : ok
+                      ? f.needed
+                      : `Needed for ${f.needed}. Install: ${f.how}`}
+                  </div>
                 </div>
               </div>)
           })}

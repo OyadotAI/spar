@@ -4,6 +4,7 @@ import { api } from '@/api/client'
 import { useApp } from '@/stores/app'
 import { confirm } from '@/shell/Confirm'
 import { useTerminal } from '@/stores/terminal'
+import { Icon } from '@/shell/Icon'
 import { ProfilePicker } from '@/pages/ProfilePicker'
 import { AwsAccess } from '@/pages/AwsAccess'
 
@@ -68,8 +69,41 @@ export function SettingsPage() {
 
       <section className="card">
         <h2>Tools</h2>
-        <ul className="dim" style={{ margin: 0, paddingLeft: 18 }}>
-          {state && Object.entries(state.tools).map(([k, t]) => <li key={k}><code>{k}</code> {t.installed ? t.version : <span style={{ color: 'var(--del)' }}>not found on PATH</span>}</li>)}
+        <ul className="dim" style={{ margin: 0, paddingLeft: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {state && Object.entries(state.tools).map(([k, t]) => {
+            const notLoggedIn = k === 'claude' && t.installed && t.loggedIn === false
+            return (
+              <li key={k} style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <code>{k}</code>
+                {t.installed ? (
+                  <>
+                    <span className="mono">{t.version}</span>
+                    {k === 'claude' && (
+                      notLoggedIn ? (
+                        <>
+                          <span className="pill warn">not signed in</span>
+                          <button className="primary" style={{ minHeight: 22, padding: '2px 8px' }} onClick={() => openTerminal('claude login')}>
+                            <Icon name="terminal" size={12} />Sign in
+                          </button>
+                        </>
+                      ) : t.loggedIn === true ? (
+                        <span className="pill ok">signed in</span>
+                      ) : null
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <span style={{ color: 'var(--del)' }}>not found on PATH</span>
+                    {k === 'claude' && (
+                      <button style={{ minHeight: 22, padding: '2px 8px' }} onClick={() => openTerminal('npm i -g @anthropic-ai/claude-code')}>
+                        <Icon name="terminal" size={12} />Install
+                      </button>
+                    )}
+                  </>
+                )}
+              </li>
+            )
+          })}
         </ul>
       </section>
     </div>

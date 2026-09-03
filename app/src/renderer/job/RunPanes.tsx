@@ -2,6 +2,11 @@ import { useEffect, useState } from 'react'
 import { api } from '@/api/client'
 import { Icon } from '@/shell/Icon'
 import { TimeChart } from '@/shell/Chart'
+import { tell } from '@/shell/Toast'
+import { useJob } from '@/stores/job'
+import { useLanes } from '@/stores/lanes'
+import { useAuthoring } from '@/authoring/store'
+import { RunSheet } from '@/console/RunSheet'
 import type { Insights, MetricsReply } from '@/wire/types'
 import { RolePrompt } from './RolePrompt'
 import { EnableFlag } from './EnableFlag'
@@ -82,6 +87,9 @@ export function SparkUiPane({ job, run }: { job: string; run: string }) {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [note, setNote] = useState<string | null>(null)
+  const [sheet, setSheet] = useState(false)
+  const startJob = useJob((s) => s.start)
+
   const load = async () => { const r = await api.get<{ running: boolean; url?: string | null; run?: string | null }>('/api/glue/sparkui', 'the Spark UI'); if (r.ok) setStatus(r.value) }
   useEffect(() => { void load() }, [])
   const start = async () => {
@@ -96,21 +104,75 @@ export function SparkUiPane({ job, run }: { job: string; run: string }) {
   }
   const stop = async () => { await api.post('/api/glue/sparkui/stop', {}, 'stopping'); await load() }
   const mine = status?.running && status.run === run
+
+  const isNoLogs = err && /this run wrote no spark event logs/i.test(err)
+  const openLocalSparkUi = async () => {
+    const v = await tell('open the local Spark UI', api.post<{ url: string }>('/api/engine/sparkui', {}, 'the Spark UI', 3 * 60_000))
+    if (v) window.keel.openExternal(v.url)
+  }
+  const runLocally = () => {
+    useLanes.getState().setTab(job, 'authoring')
+    void useAuthoring.getState().runLocal(job, false)
+  }
+
   return (
     <div style={{ padding: 14, overflow: 'auto', height: '100%' }}>
-      <p className="dim" style={{ marginTop: 0, maxWidth: 68 * 8 }}>Keel starts Spark's own history server in the Glue 5 container, pointed at this run's event logs in S3, and opens it in your browser. It needs the run to have had <code>Spark UI (event logs)</code> on with a logs path set.</p>
+      <p className="dim" style={{ marginTop: 0, maxWidth: 68 * 8 }}>
+        Keel starts Spark&apos;s own history server in the Glue 5 container, pointed at this run&apos;s event logs in S3, and opens it in your browser. It needs the run to have had <code>Spark UI (event logs)</code> on with a logs path set.
+      </p>
       <div className="row">
-        {mine ? <>
-          <button className="primary" onClick={() => void window.keel.openExternal(status!.url!)}><Icon name="external" />Open Spark UI</button>
-          <button onClick={() => void stop()}><Icon name="stop" />Stop server</button>
-          <span className="mono small dim">{status!.url}</span>
-        </> : <button className="primary" disabled={busy} onClick={() => void start()}><Icon name={busy ? 'spinner' : 'play'} className={busy ? 'spin' : ''} />{busy ? 'Starting…' : 'Start Spark UI for this run'}</button>}
+        {mine ? (
+          <>
+            <button className="primary" onClick={() => void window.keel.openExternal(status!.url!)}><Icon name="external" />Open Spark UI</button>
+            <button onClick={() => void stop()}><Icon name="stop" />Stop server</button>
+            <span className="mono small dim">{status!.url}</span>
+          </>
+        ) : (
+          <button className="primary" disabled={busy} onClick={() => void start()}>
+            <Icon name={busy ? 'spinner' : 'play'} className={busy ? 'spin' : ''} />{busy ? 'Starting…' : 'Start Spark UI for this run'}
+          </button>
+        )}
       </div>
-      {busy && <p className="dim small">Starting the history server and parsing this run's event log. It opens when it is actually serving — about twenty seconds.</p>}
+      {busy && <p className="dim small">Starting the history server and parsing this run&apos;s event log. It opens when it is actually serving — about twenty seconds.</p>}
       {status?.running && !mine && <p className="dim small">A history server is already running for run {status.run}. Starting it here replaces it.</p>}
       {note && <p className="dim small">{note}</p>}
-      {err && <p className="small" style={{ color: 'var(--del)', whiteSpace: 'pre-wrap' }}>{err}</p>}
-      {err && /event log|spark-ui|logs path/i.test(err) && <EnableFlag job={job} what="sparkui" />}
+      
+      {isNoLogs ? (
+        <div className="card" style={{ padding: 'var(--s3)', margin: 'var(--s3) 0', border: '1px solid var(--warn)', background: 'var(--warn-bg)', maxWidth: 600 }}>
+          <div className="row" style={{ gap: 6, fontWeight: 600, color: 'var(--warn)', marginBottom: 4 }}>
+            <Icon name="warn" size={14} />Spark event logs not found for this run
+          </div>
+          <p className="small dim" style={{ margin: '0 0 var(--s2) 0', color: 'var(--text)' }}>
+            Spark UI is enabled on the job definition now, but was off when this specific run started. Start a new run to capture event logs in S3, or run locally to get a Spark UI immediately with no S3 setup.
+          </p>
+          <div className="row" style={{ gap: 8, marginTop: 8 }}>
+            <button className="primary" onClick={() => setSheet(true)}>
+              <Icon name="play" />Start new run in AWS
+            </button>
+            <button onClick={runLocally}>
+              <Icon name="route" />Run locally on samples
+            </button>
+            <button className="quiet" onClick={() => void openLocalSparkUi()}>
+              <Icon name="activity" />Local Spark UI
+            </button>
+          </div>
+        </div>
+      ) : err ? (
+        <p className="small" style={{ color: 'var(--del)', whiteSpace: 'pre-wrap' }}>{err}</p>
+      ) : null}
+
+      {err && !isNoLogs && /event log|spark-ui|logs path/i.test(err) && <EnableFlag job={job} what="sparkui" />}
+      
+      {sheet && (
+        <RunSheet
+          initial={{}}
+          onClose={() => setSheet(false)}
+          onRun={(args) => {
+            setSheet(false)
+            void startJob(job, args ?? {})
+          }}
+        />
+      )}
     </div>
   )
 }

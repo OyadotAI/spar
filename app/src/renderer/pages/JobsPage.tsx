@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
 import { Icon } from '@/shell/Icon'
+import { Seg } from '@/shell/Seg'
 import { useApp } from '@/stores/app'
 import { useGlue, filteredJobs, type LocalJob } from '@/stores/glue'
 import { useTerminal } from '@/stores/terminal'
@@ -70,6 +71,7 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
   const { jobs, local, loaded, failure, auth, query, setQuery, refresh, refreshLocal, createLocal, stale, offline, refreshedAt } = useGlue()
   const [newName, setNewName] = useState<string | null>(null)
   const [newErr, setNewErr] = useState<string | null>(null)
+  const [scope, setScope] = useState<'all' | 'local' | 'aws'>('all')
   const rows = useMemo(() => filteredJobs(jobs, query), [jobs, query])
   const openTerminal = useTerminal((s) => s.openWith)
   useEffect(() => { if (!loaded && connection === 'connected') { void refresh(); void refreshLocal() } }, [loaded, connection, refresh, refreshLocal])
@@ -96,12 +98,14 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
     setNewName(null); onOpen({ name }); useLanes.getState().setTab(name, 'authoring')
   }
 
+  const hasAnyJobs = rows.length > 0 || draftRows.length > 0
+
   let body: React.ReactNode
-  if (connection === 'dead') body = <EmptyState title="The daemon stopped">{deathReason}</EmptyState>
-  else if (!state || (!loaded && connection !== 'connected')) body = <EmptyState title="Starting…">Waiting for the daemon.</EmptyState>
-  else if (!state.tools.aws.installed) body = <EmptyState title="The aws CLI is not on PATH">Keel uses it for job definitions and SSO sign-in. Install it from aws.amazon.com/cli, then restart Keel.</EmptyState>
-  else if (auth.kind === 'noProfile') body = (
-    <EmptyState title="No AWS profile selected"
+  if (connection === 'dead') body = <EmptyState icon="bad" title="The daemon stopped">{deathReason}</EmptyState>
+  else if (!state || (!loaded && connection !== 'connected')) body = <EmptyState icon="spinner" title="Starting…">Waiting for the daemon.</EmptyState>
+  else if (!state.tools.aws.installed && !hasAnyJobs) body = <EmptyState icon="warn" title="The aws CLI is not on PATH">Keel uses it for job definitions and SSO sign-in. Install it from aws.amazon.com/cli, then restart Keel.</EmptyState>
+  else if (auth.kind === 'noProfile' && !hasAnyJobs) body = (
+    <EmptyState icon="gear" title="No AWS profile selected"
       actions={<>
         <button className="primary" onClick={() => { setNewName(''); setNewErr(null) }}><Icon name="plus" />Start a local job</button>
         <button onClick={() => toggle('showSettings', true)}>Connect AWS…</button>
@@ -109,31 +113,56 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
       Building a pipeline, generating its code, running its tests and running it on sample data all happen on this machine.
       AWS is needed only to import an existing job, to deploy, and to run in the cloud.
     </EmptyState>)
-  else if (auth.kind === 'expired') body = (
-    <EmptyState title={`Sign in to ${state.profile}`} actions={<button className="primary" onClick={() => openTerminal(auth.fix)}>Sign in</button>}>
+  else if (auth.kind === 'expired' && !hasAnyJobs) body = (
+    <EmptyState icon="terminal" title={`Sign in to ${state.profile}`} actions={<button className="primary" onClick={() => openTerminal(auth.fix)}>Sign in</button>}>
       The SSO session has expired. Signing in runs <code>{auth.fix}</code> in the terminal; the list fills on its own once it succeeds.
     </EmptyState>)
-  else if (failure) body = <FaultState fault={failure} retry={() => void refresh()} />
-  else if (!loaded) body = <EmptyState title="Reading jobs…">First look at {state.region ?? 'the region'}.</EmptyState>
-  else if (jobs.length === 0) body = <EmptyState title={`No Glue jobs in ${state.region ?? 'this region'}`} actions={<button className="primary" onClick={() => { setNewName(''); setNewErr(null) }}><Icon name="plus" />New job</button>}>Jobs created in the console or by API appear here within a few seconds.</EmptyState>
-  else if (rows.length === 0 && draftRows.length === 0) body = <EmptyState title="No job matches">Nothing named like “{query}”.</EmptyState>
-  else body = <Table rows={rows} drafts={draftRows} onOpen={onOpen} />
+  else if (failure && !hasAnyJobs) body = <FaultState fault={failure} retry={() => void refresh()} />
+  else if (!loaded && !hasAnyJobs) body = <EmptyState icon="spinner" title="Reading jobs…">First look at {state.region ?? 'the region'}.</EmptyState>
+  else if (!hasAnyJobs && query) body = <EmptyState icon="search" title="No job matches">Nothing named like “{query}”.</EmptyState>
+  else if (!hasAnyJobs) body = <EmptyState icon="keel" title={`No Glue jobs in ${state?.region ?? 'this region'}`} actions={<button className="primary" onClick={() => { setNewName(''); setNewErr(null) }}><Icon name="plus" />New job</button>}>Jobs created in the console or by API appear here within a few seconds.</EmptyState>
+  else body = (
+    <div className="col" style={{ height: '100%' }}>
+      {auth.kind === 'noProfile' && (
+        <div className="banner">
+          <Icon name="info" size={14} />
+          <span className="fill">No AWS profile selected — showing local drafts. Connect an AWS account to see cloud jobs.</span>
+          <button className="quiet" onClick={() => toggle('showSettings', true)} style={{ textDecoration: 'underline' }}>Connect AWS…</button>
+        </div>
+      )}
+      <div className="fill" style={{ minHeight: 0 }}>
+        <Table rows={scope === 'local' ? [] : rows} drafts={scope === 'aws' ? [] : draftRows} onOpen={onOpen} />
+      </div>
+    </div>
+  )
 
   return (
     <div className="col" style={{ height: '100%' }}>
       <div className="page-head">
         <div>
           <h1>Jobs</h1>
-          <div className="sub">{loaded && auth.kind === 'ok' ? <>{jobs.length} in <span className="fig">{state?.region}</span>{running ? <> · <span style={{ color: 'var(--accent)' }}>{running} running</span></> : ''}{drafts.length ? <> · {drafts.length} local draft{drafts.length > 1 ? 's' : ''}</> : ''}</> : 'AWS Glue, live'}</div>
+          <div className="sub">{loaded && auth.kind === 'ok' ? <>{jobs.length} in <span className="fig">{state?.region}</span>{running ? <> · <span style={{ color: 'var(--accent)' }}>{running} running</span></> : ''}{drafts.length ? <> · {drafts.length} local draft{drafts.length > 1 ? 's' : ''}</> : ''}</> : drafts.length ? `${drafts.length} local draft${drafts.length > 1 ? 's' : ''}` : 'AWS Glue, live'}</div>
         </div>
         <span className="fill" />
-        <div className="row">
+        <div className="row" style={{ gap: 8 }}>
+          {hasAnyJobs && (
+            <Seg
+              label="Job filter"
+              value={scope}
+              onChange={setScope}
+              options={[
+                ['all', `All (${drafts.length + jobs.length})`],
+                ['local', `Local (${drafts.length})`],
+                ['aws', `In AWS (${jobs.length})`],
+              ] as const}
+            />
+          )}
           <ProfilePicker />
           <div style={{ position: 'relative' }}>
             <Icon name="search" size={12} style={{ position: 'absolute', left: 8, top: 8, color: 'var(--faint)' }} />
-            <input placeholder="Search jobs" data-search aria-label="Search jobs" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 220, paddingLeft: 26 }} />
+            <input placeholder="Search jobs" data-search aria-label="Search jobs" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 180, paddingLeft: 26 }} />
           </div>
-          <button onClick={() => { setNewName(''); setNewErr(null) }} title="A job that lives only here until you deploy it"><Icon name="plus" />New job</button>
+          <button className="primary" onClick={() => { setNewName(''); setNewErr(null) }} title="A job that lives only here until you deploy it"><Icon name="plus" />New job</button>
           <button className="quiet" onClick={() => void importJson()} title="Create a job from an exported job JSON"><Icon name="download" />Import</button>
           <button className="quiet" onClick={() => void refresh()} aria-label="Refresh the job list" title="Re-read now (the list also updates on its own)"><Icon name="refresh" /></button>
         </div>
@@ -239,7 +268,8 @@ function Table({ rows, drafts, onOpen }: { rows: GlueJob[]; drafts: LocalJob[]; 
 
             if (item.kind === 'head') return (
               <div key={item.key} className="jobs-group" style={style}>
-                <span>{item.label}</span><span className="faint">{item.note}</span>
+                <span className={'pill ' + (item.key === 'h-local' ? 'info' : 'source')} style={{ marginRight: 6 }}>{item.label}</span>
+                <span className="faint">{item.note}</span>
               </div>)
 
             if (item.kind === 'draft') {
@@ -250,8 +280,9 @@ function Table({ rows, drafts, onOpen }: { rows: GlueJob[]; drafts: LocalJob[]; 
                   onDoubleClick={() => { setMenu(null); onOpen({ name: l.name }) }}
                   onContextMenu={(e) => { e.preventDefault(); setSelected(l.name); setMenu({ draft: l, x: e.clientX, y: e.clientY }) }}>
                   <span className="row" style={{ gap: 8, minWidth: 0 }}>
+                    <Icon name="route" size={14} style={{ color: 'var(--accent)' }} />
                     <span className="name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
-                    <span className="pill" title={`jobs/${l.name} on ${l.lane.branch ?? 'the project branch'} — not in AWS yet`}>draft</span>
+                    <span className="pill info" title={`jobs/${l.name} on ${l.lane.branch ?? 'the project branch'} — not in AWS yet`}>local</span>
                     {l.lane.dirty ? <span className="pill warn" title="uncommitted changes in its lane">{l.lane.dirty} changed</span> : null}
                   </span>
                   {/* a job that has never reached AWS has no type, mode, version or run history */}
@@ -259,7 +290,7 @@ function Table({ rows, drafts, onOpen }: { rows: GlueJob[]; drafts: LocalJob[]; 
                   <span className="dim small opt">{l.hasDag ? 'visual' : '—'}</span>
                   <span className="dim fig small opt">—</span>
                   <span className="dim fig small opt">—</span>
-                  <span><span className="faint small">not deployed</span></span>
+                  <span><span className="pill">local draft</span></span>
                   <span className="dim fig small">—</span>
                   <span className="dim fig small">—</span>
                   <span className="row dim fig small" style={{ gap: 4 }}>{[l.hasScript && 'script', l.hasTests && 'tests'].filter(Boolean).join(' · ') || '—'}<span className="fill" />
@@ -274,8 +305,9 @@ function Table({ rows, drafts, onOpen }: { rows: GlueJob[]; drafts: LocalJob[]; 
                 onDoubleClick={() => { setMenu(null); onOpen(j) }}
                 onContextMenu={(e) => { e.preventDefault(); setSelected(j.name); setMenu({ job: j, x: e.clientX, y: e.clientY }) }}>
                 <span className="row" style={{ gap: 8, minWidth: 0 }}>
+                  <Icon name="database" size={14} style={{ color: 'var(--faint)' }} />
                   <span className="name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.name}</span>
-                  {j.local?.imported && <span className="pill" title="has a local folder">local</span>}
+                  {j.local?.imported && <span className="pill ok" title="has a local folder">synced</span>}
                   {j.local?.remoteChanged && <span className="pill warn" title="changed in AWS since you imported it">remote changed</span>}
                 </span>
                 <span className="dim small opt">{j.commandName === 'gluestreaming' ? 'Streaming' : j.commandName === 'pythonshell' ? 'Python shell' : j.commandName === 'glueray' ? 'Ray' : 'Spark'}</span>

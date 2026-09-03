@@ -3,6 +3,8 @@ import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { callSubject, type Step, type Turn } from '@/wire/decoder'
 import { Icon } from '@/shell/Icon'
+import { useTerminal } from '@/stores/terminal'
+import { useApp } from '@/stores/app'
 
 type Call = Extract<Step, { kind: 'call' }>
 
@@ -23,8 +25,83 @@ export function TurnCard({ turn, index }: { turn: Turn; index: number }) {
       <div className="prompt">{turn.prompt}</div>
       <div className="who"><Icon name="keel" size={14} />Keel <span className="faint" style={{ fontWeight: 400 }}>· turn {index}</span></div>
       {group(turn.steps).map((s, i) => s.kind === 'calls' ? <Calls key={i} calls={s.calls} running={turn.running} /> : <StepView key={i} step={s} />)}
-      {turn.error && <pre className="err">{turn.error}</pre>}
+      {turn.error && <TurnError error={turn.error} turn={turn} />}
       {!turn.running && <Footer turn={turn} />}
+    </div>
+  )
+}
+
+function TurnError({ error, turn }: { error: string; turn: Turn }) {
+  const openTerminal = useTerminal((s) => s.openWith)
+  const state = useApp((s) => s.state)
+  const claudeTool = state?.tools?.claude
+
+  const isLogin =
+    /not logged in|\/login|claude login|claude auth login|authentication|subscription/i.test(error) ||
+    turn.steps.some((s) => s.kind === 'text' && /not logged in|\/login|claude login/i.test(s.text)) ||
+    claudeTool?.loggedIn === false
+
+  const isNotInstalled =
+    /not found|could not (?:find|start) claude|ENOENT|code 127/i.test(error) ||
+    (claudeTool !== undefined && !claudeTool.installed)
+
+  if (isLogin) {
+    return (
+      <div className="card" style={{ padding: 'var(--s3)', margin: 'var(--s2) 0', border: '1px solid var(--warn)', background: 'var(--warn-bg)' }}>
+        <div className="row" style={{ gap: 6, fontWeight: 600, color: 'var(--warn)', marginBottom: 4 }}>
+          <Icon name="warn" size={14} />Not signed in to Claude Code
+        </div>
+        <p className="small dim" style={{ margin: '0 0 var(--s2) 0', color: 'var(--text)' }}>
+          Claude Code requires an active subscription or sign in. Sign in using the terminal to enable the agent.
+        </p>
+        <div className="row" style={{ gap: 8, marginTop: 6 }}>
+          <button className="primary" onClick={() => openTerminal('claude login')}>
+            <Icon name="terminal" />Sign in (claude login)
+          </button>
+        </div>
+        <details className="thinking" style={{ marginTop: 8 }}>
+          <summary>Error details</summary>
+          <pre className="err" style={{ marginTop: 4 }}>{error}</pre>
+        </details>
+      </div>
+    )
+  }
+
+  if (isNotInstalled) {
+    return (
+      <div className="card" style={{ padding: 'var(--s3)', margin: 'var(--s2) 0', border: '1px solid var(--del)', background: 'var(--del-bg)' }}>
+        <div className="row" style={{ gap: 6, fontWeight: 600, color: 'var(--del)', marginBottom: 4 }}>
+          <Icon name="bad" size={14} />Claude Code is not installed
+        </div>
+        <p className="small dim" style={{ margin: '0 0 var(--s2) 0', color: 'var(--text)' }}>
+          Keel drives your local <code>claude</code> CLI for debugging and authoring. Install it globally on your machine.
+        </p>
+        <div className="row" style={{ gap: 8, marginTop: 6 }}>
+          <button className="primary" onClick={() => openTerminal('npm i -g @anthropic-ai/claude-code')}>
+            <Icon name="terminal" />Install Claude Code
+          </button>
+        </div>
+        <details className="thinking" style={{ marginTop: 8 }}>
+          <summary>Error details</summary>
+          <pre className="err" style={{ marginTop: 4 }}>{error}</pre>
+        </details>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ margin: 'var(--s2) 0' }}>
+      <pre className="err">{error}</pre>
+      {/claude exited/i.test(error) && (
+        <div className="row" style={{ gap: 8, marginTop: 6 }}>
+          <button className="primary" onClick={() => openTerminal('claude login')}>
+            <Icon name="terminal" />Sign in (claude login)
+          </button>
+          <button onClick={() => openTerminal('claude -p "hi"')}>
+            <Icon name="terminal" />Test claude in terminal
+          </button>
+        </div>
+      )}
     </div>
   )
 }

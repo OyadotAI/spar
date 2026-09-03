@@ -28,6 +28,7 @@ public class Lanes {
     /** The lane's checkout, created on demand. */
     public synchronized Path ensure(String job) {
         Path root = root();
+        Git.clearStaleLocks(root);
         Git.init(root);
         if (Git.head(root) == null) {
             // a repository with no commit cannot have a worktree; give it an empty first one
@@ -37,18 +38,29 @@ public class Lanes {
             }
         }
         Path d = dir(job);
-        if (exists(job)) return d;
+        if (exists(job)) {
+            Git.clearStaleLocks(d);
+            return d;
+        }
         try {
             Files.createDirectories(d.getParent());
             Path gi = d.getParent().resolve(".gitignore");
             if (!Files.exists(gi)) Files.writeString(gi, "*\n");
         } catch (IOException e) { throw new ApiError(500, "cannot create " + d.getParent()); }
+        Git.clearStaleLocks(root);
         Proc.git(root, "worktree", "prune");
         boolean branchExists = Proc.git(root, "rev-parse", "--verify", "--quiet", "refs/heads/" + branch(job)).ok();
         Proc.Result r = branchExists
                 ? Proc.git(root, "worktree", "add", d.toString(), branch(job))
                 : Proc.git(root, "worktree", "add", "-b", branch(job), d.toString(), "HEAD");
+        if (!r.ok() && r.stderr().contains("lock': File exists")) {
+            Git.clearStaleLocks(root);
+            r = branchExists
+                    ? Proc.git(root, "worktree", "add", d.toString(), branch(job))
+                    : Proc.git(root, "worktree", "add", "-b", branch(job), d.toString(), "HEAD");
+        }
         if (!r.ok()) throw new ApiError(500, "git worktree add failed: " + r.stderr().strip());
+        Git.clearStaleLocks(d);
         return d;
     }
 

@@ -100,16 +100,7 @@ export function AuthoringTab({ job }: { job: string }) {
   return (
     <SplitPane storageKey="authoring.chat" initial={0.74} min={520} minB={320}
       a={middle}
-      b={<div className="col" style={{ height: '100%' }}>
-        <div className="row" style={{ padding: '4px 6px 0', justifyContent: 'flex-end' }}>
-          <button className="quiet micro" onClick={() => showChat(false)} title="Give the canvas the space">
-            <Icon name="chevron" size={12} />Hide agent
-          </button>
-        </div>
-        <div className="fill" style={{ minHeight: 0 }}>
-          <ChatRail job={job} mode="author" placeholder="Describe the pipeline…" composerOnTop />
-        </div>
-      </div>} />
+      b={<ChatRail job={job} mode="author" placeholder="Describe the pipeline…" onClose={() => showChat(false)} />} />
   )
 }
 
