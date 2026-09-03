@@ -70,7 +70,8 @@ public class Deployer {
         boolean visualDag = dag != null && dag.isObject() && dag.size() > 0 && !"tested".equals(mode);
         if (visualDag) {
             Project.validateDag(dag);
-            update.set("CodeGenConfigurationNodes", dag);
+            // Glue rejects OutputSchemas on node types that do not declare it; dag.json keeps it
+            update.set("CodeGenConfigurationNodes", Project.dagForGlue(dag));
             update.put("JobMode", "VISUAL");
         } else if ("tested".equals(mode)) {
             // no DAG on the job: nothing regenerates the script, so the tested code is what runs

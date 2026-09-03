@@ -14,12 +14,13 @@ public class StateController {
     private final Tools tools;
     private final Events events;
     private final List<StateContributor> contributors;
+    private final ai.oya.keel.aws.Sync sync;
 
     /** Anything that wants a section in `/api/state` (profiles, live mode) registers one of these. */
     public interface StateContributor { void contribute(Map<String, Object> state); }
 
-    public StateController(State state, Tools tools, Events events, List<StateContributor> contributors) {
-        this.state = state; this.tools = tools; this.events = events; this.contributors = contributors;
+    public StateController(State state, Tools tools, Events events, List<StateContributor> contributors, ai.oya.keel.aws.Sync sync) {
+        this.state = state; this.tools = tools; this.events = events; this.contributors = contributors; this.sync = sync;
     }
 
     @GetMapping("/api/state")
@@ -37,6 +38,9 @@ public class StateController {
     @PostMapping("/api/profile")
     public Map<String, Object> profile(@RequestBody ProfileBody b) {
         state.set(b.profile(), b.region(), b.scriptBucket());
+        // the cached listing belongs to the profile and region we just left; drop it before anyone
+        // can read it back, rather than waiting for the sync loop's next tick to notice
+        sync.reset();
         events.emit("state.changed", state.asMap());
         return get();
     }

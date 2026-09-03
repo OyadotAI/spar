@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/api/client'
 import { Icon } from '@/shell/Icon'
+import { confirm } from '@/shell/Confirm'
 
 type Role = { role: string; roleArn: string; logGroups: string[]; canWriteLogs: boolean; metricCount: number
   attachedPolicies: string[]; inlinePolicies: string[]; readable: boolean; hasKeelPolicy: boolean; policyName: string; policy: string; missing: string[]; iamNote?: string }
@@ -20,6 +21,12 @@ export function RolePrompt({ job, need }: { job: string; need: 'logs' | 'metrics
   const blocked = need === 'logs' ? !r.canWriteLogs : r.metricCount === 0
   if (!blocked) return null
   const grant = async () => {
+    // attaching a policy to a live IAM role is a change to the account, not to Keel
+    if (!await confirm({
+      title: `Attach the Keel policy to ${r.role}?`,
+      confirmLabel: 'Attach the policy',
+      body: `This adds an inline policy to the IAM role "${r.role}" in your account, granting ${r.missing.join(' ')}. Detach it in the IAM console at any time.`,
+    })) return
     setBusy(true); setMsg(null)
     const x = await api.post<{ note: string }>(`/api/glue/jobs/${encodeURIComponent(job)}/role/grant`, {}, 'the policy')
     setBusy(false)
@@ -45,7 +52,7 @@ export function RolePrompt({ job, need }: { job: string; need: 'logs' | 'metrics
         <button className="quiet" onClick={() => void navigator.clipboard.writeText(r.policy)}><Icon name="copy" size={12} />Copy</button>
       </div>
       {msg && <div className="small" style={{ marginTop: 8, color: msg.includes('could not') ? 'var(--del)' : 'var(--add)' }}>{msg}</div>}
-      {show && <pre className="mono" style={{ marginTop: 8, padding: 10, background: 'var(--well)', borderRadius: 'var(--r)', fontSize: 11, overflow: 'auto', maxHeight: 260 }}>{r.policy}</pre>}
+      {show && <pre className="mono" style={{ marginTop: 8, padding: 10, background: 'var(--well)', borderRadius: 'var(--r)', fontSize: 'var(--micro)', overflow: 'auto', maxHeight: 260 }}>{r.policy}</pre>}
       <div className="faint small" style={{ marginTop: 6 }}>Runs that already finished have no logs to recover; the next run does.</div>
     </div>
   )

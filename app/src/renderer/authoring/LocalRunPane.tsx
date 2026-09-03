@@ -28,7 +28,7 @@ export function LocalRunPane({ job }: { job: string }) {
   }
   return (
     <div className="col" style={{ height: '100%' }}>
-      <div className="row" style={{ padding: '0 12px', height: 32, borderBottom: '1px solid var(--line)', fontSize: 12, background: 'var(--surface)' }}>
+      <div className="row" style={{ padding: '0 12px', height: 32, borderBottom: '1px solid var(--line)', fontSize: 'var(--small)', background: 'var(--surface)' }}>
         <span className="dim">{status?.ready ? 'reads samples/ — no AWS' : 'needs a sample for every source'}</span>
         <label className="row" style={{ gap: 5 }} title="Skip what an earlier local run already read. A simulation of Glue's bookmark, not the real one.">
           <input type="checkbox" checked={bookmarks} onChange={(e) => setBookmarks(e.target.checked)} />simulate bookmarks
@@ -53,23 +53,23 @@ export function LocalRunPane({ job }: { job: string }) {
             <tbody>{r.nodes.map((n) => <tr key={n.node}><td>{name(n.node)}</td><td className="fig">{n.rows}</td><td className="fig">{n.columns}</td></tr>)}</tbody>
           </table>)}
         {r?.written && r.written.length > 0 && (
-          <div style={{ padding: '4px 12px', fontSize: 12 }}>
+          <div style={{ padding: '4px 12px', fontSize: 'var(--small)' }}>
             <span className="eyebrow">Wrote</span>
             {r.written.map((w) => <div key={w.node} className="row" style={{ gap: 6 }}><Icon name="s3out" size={12} /><span className="mono">{w.path}</span><span className="faint fig">{w.rows} rows · {w.format}</span></div>)}
           </div>)}
         {r?.bookmarksSimulated && r.bookmark && (
-          <div style={{ padding: '4px 12px', fontSize: 12 }}>
+          <div style={{ padding: '4px 12px', fontSize: 'var(--small)' }}>
             <span className="eyebrow">Simulated bookmark</span>
             <div className="dim">Files this run consumed are recorded here and skipped next time. Glue&rsquo;s own bookmark is untouched.</div>
           </div>)}
         {r?.notCovered && r.notCovered.length > 0 && (
-          <div style={{ padding: '4px 12px', fontSize: 12 }}>
+          <div style={{ padding: '4px 12px', fontSize: 'var(--small)' }}>
             <span className="eyebrow">Not covered locally</span>
             {r.notCovered.map((t) => <div key={t} className="row" style={{ gap: 6, color: 'var(--warn)' }}><Icon name="warn" size={12} />{t}</div>)}
           </div>)}
         {r?.message && <pre className="err" style={{ margin: 12, whiteSpace: 'pre-wrap' }}>{r.message}</pre>}
         {(a?.localOutput.length ?? 0) > 0 && (
-          <pre className="mono" style={{ margin: 0, padding: 8, background: 'var(--bg-sunken)', fontSize: 11.5, whiteSpace: 'pre-wrap' }}>{a!.localOutput.join('\n')}</pre>)}
+          <pre className="mono" style={{ margin: 0, padding: 8, background: 'var(--well)', fontSize: 'var(--small)', whiteSpace: 'pre-wrap' }}>{a!.localOutput.join('\n')}</pre>)}
       </div>
     </div>
   )

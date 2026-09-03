@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { create } from 'zustand'
-import { useEscape } from './useEscape'
+import { Sheet } from './Sheet'
 
 type Ask = { title: string; body?: string; label?: string; value?: string; placeholder?: string; mono?: boolean; confirmLabel?: string; resolve: (v: string | null) => void }
 type Store = { ask: Ask | null; open: (a: Omit<Ask, 'resolve'>) => Promise<string | null>; close: (v: string | null) => void }
@@ -18,21 +18,20 @@ export function PromptSheet() {
   const { ask, close } = usePrompt()
   const [v, setV] = useState('')
   const [seen, setSeen] = useState<Ask | null>(null)
-  useEscape(!!ask, () => close(null))
   if (!ask) return null
   if (seen !== ask) { setSeen(ask); setV(ask.value ?? ''); return null }
   return (
-    <div className="sheet-backdrop" onClick={() => close(null)}>
-      <div className="sheet" style={{ width: 460 }} onClick={(e) => e.stopPropagation()}>
-        <h2 style={{ marginBottom: 6 }}>{ask.title}</h2>
+    <Sheet label={ask.title} width={460} onClose={() => close(null)} dirty={v.trim() !== (ask.value ?? '').trim()}>
+      <div>
+        <h2>{ask.title}</h2>
         {ask.body && <p className="dim" style={{ marginTop: 0 }}>{ask.body}</p>}
-        <input autoFocus className={ask.mono ? 'mono' : ''} style={{ width: '100%' }} placeholder={ask.placeholder} value={v}
-          onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && v.trim()) close(v); if (e.key === 'Escape') close(null) }} />
+        <input autoFocus aria-label={ask.label ?? ask.title} className={ask.mono ? 'mono' : ''} style={{ width: '100%' }} placeholder={ask.placeholder} value={v}
+          onChange={(e) => setV(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && v.trim()) close(v) }} />
         <div className="row" style={{ marginTop: 14, justifyContent: 'flex-end' }}>
           <button onClick={() => close(null)}>Cancel</button>
           <button className="primary" disabled={!v.trim()} onClick={() => close(v)}>{ask.confirmLabel ?? 'OK'}</button>
         </div>
       </div>
-    </div>
+    </Sheet>
   )
 }

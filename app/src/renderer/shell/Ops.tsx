@@ -52,7 +52,7 @@ export function OpsTray() {
   }, [ops.length])
   if (!ops.length) return null
   return (
-    <div className="ops-tray">
+    <div className="ops-tray" role="status" aria-live="polite">
       {ops.map((o) => (
         <div key={o.id} className="ops-row">
           <Icon name="spinner" size={13} className="spin" />
@@ -61,7 +61,7 @@ export function OpsTray() {
             {o.detail && <div className="d">{o.detail}</div>}
           </div>
           <span className="fig faint small">{Math.round((Date.now() - o.started) / 1000)}s</span>
-          {o.stop && <button className="quiet" title="Stop" onClick={o.stop}><Icon name="stop" size={12} /></button>}
+          {o.stop && <button className="quiet" aria-label={`Stop ${o.title}`} title="Stop" onClick={o.stop}><Icon name="stop" size={12} /></button>}
         </div>))}
     </div>
   )

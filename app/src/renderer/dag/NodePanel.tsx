@@ -3,30 +3,37 @@ import { useDag } from './store'
 import { Inspector } from './Inspector'
 import { api } from '@/api/client'
 import { Icon } from '@/shell/Icon'
+import { Seg } from '@/shell/Seg'
 import { useOps } from '@/shell/Ops'
-import { label } from './schema'
+import { label, carriesSchema } from './schema'
 import { LocalData, useSampleStatus } from './Samples'
 import { useEngine } from '@/stores/engine'
 
 type Col = { Name: string; Type?: string; Children?: Col[] }
 type PreviewResult = { cached: boolean; error?: string; schema?: Col[]; rows?: Record<string, unknown>[]; count?: number; ms?: number; source?: 'local' | 'aws'; engine?: boolean }
 
-/** Glue Studio's node panel: Properties · Output schema · Data preview. */
+/**
+ * The node inspector: Properties · Output schema · Local data.
+ *
+ * Data preview used to be a fourth tab in here, which meant the widest thing in the app — a table
+ * of sample rows — was rendered inside a 340px column. It now opens in the pane under the canvas
+ * (see AuthoringTab), which is as wide as the canvas is.
+ */
 export function NodePanel({ job }: { job: string }) {
   const d = useDag((s) => s.jobs[job])
-  const [tab, setTab] = useState<'props' | 'schema' | 'preview' | 'local'>('props')
+  const [tab, setTab] = useState<'props' | 'schema' | 'local'>('props')
   const id = d?.selection.length === 1 ? d.selection[0] : undefined
   const node = id ? d?.nodes.find((n) => n.id === id) : undefined
   if (!d || !node || !id) return <div className="inspector faint" style={{ padding: 14 }}>{d?.selection.length ? `${d.selection.length} nodes selected` : 'Select a node to see its properties, output schema and a data preview.'}</div>
   return (
     <div className="col" style={{ height: '100%' }}>
-      <div className="row subtabs" style={{ padding: '0 10px', height: 34, borderBottom: '1px solid var(--line)', flex: 'none' }}>
-        {(['props', 'schema', 'preview', 'local'] as const).map((t) => <button key={t} className={'tabbtn' + (tab === t ? ' on' : '')} onClick={() => setTab(t)}>{t === 'props' ? 'Properties' : t === 'schema' ? 'Output schema' : t === 'preview' ? 'Data preview' : 'Local data'}</button>)}
+      <div className="seg-bar">
+        <Seg label="Node inspector" value={tab} onChange={setTab}
+          options={[['props', 'Properties'], ['schema', 'Schema'], ['local', 'Local data']] as const} />
       </div>
       <div className="fill" style={{ overflow: 'auto' }}>
         {tab === 'props' && <Inspector job={job} />}
         {tab === 'schema' && <SchemaPanel job={job} id={id} type={node.type} />}
-        {tab === 'preview' && <PreviewPanel job={job} id={id} name={node.name} type={node.type} />}
         {tab === 'local' && <LocalData job={job} />}
       </div>
     </div>
@@ -65,7 +72,10 @@ function SchemaPanel({ job, id, type }: { job: string; id: string; type: string 
         <datalist id="glue-types">{['string', 'int', 'long', 'double', 'float', 'boolean', 'timestamp', 'date', 'decimal(10,2)', 'array<string>', 'struct<>', 'array<struct<>>', 'map<string,string>'].map((t) => <option key={t} value={t} />)}</datalist>
         <button className="quiet" style={{ marginTop: 6 }} onClick={() => write([...cols, { Name: `col${cols.length + 1}`, Type: 'string' }])}><Icon name="plus" />column</button>
       </div>
-      <div className="insp-section faint small">{label(type)} · the schema is what downstream nodes and the scaffolded tests assume; inferring records what the code actually produces.</div>
+      <div className="insp-section faint small">
+        {label(type)} · the schema is what downstream nodes and the scaffolded tests assume; inferring records what the code actually produces.
+        {!carriesSchema(type) && <> Glue does not accept a schema on this node type, so Keel keeps it locally to fill the column pickers and leaves it out of the deploy.</>}
+      </div>
     </div>
   )
 }
@@ -88,8 +98,8 @@ function Rows({ cols, path, open, setOpen, write }: { cols: Col[]; path: number[
                 <input className="mono" defaultValue={c.Name} onBlur={(e) => { if (e.target.value !== c.Name) edit(i, { Name: e.target.value }) }} />
               </span>
               <input className="mono" defaultValue={c.Type ?? 'string'} list="glue-types" onBlur={(e) => { if (e.target.value !== c.Type) edit(i, { Type: e.target.value }) }} />
-              <button className="quiet" title="add a child key" style={{ visibility: nested ? 'visible' : 'hidden' }} onClick={() => { edit(i, { Children: [...kids, { Name: `field${kids.length + 1}`, Type: 'string' }] }); setOpen({ ...open, [key(i)]: true }) }}><Icon name="plus" size={11} /></button>
-              <button className="quiet" onClick={() => write(cols.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
+              <button className="quiet" aria-label="Add a child key" title="add a child key" style={{ visibility: nested ? 'visible' : 'hidden' }} onClick={() => { edit(i, { Children: [...kids, { Name: `field${kids.length + 1}`, Type: 'string' }] }); setOpen({ ...open, [key(i)]: true }) }}><Icon name="plus" size={11} /></button>
+              <button className="quiet" aria-label={`Remove column ${c.Name}`} onClick={() => write(cols.filter((_, j) => j !== i))}><Icon name="x" size={12} /></button>
             </div>
             {nested && isOpen && kids.length > 0 && <Rows cols={kids} path={[...path, i]} open={open} setOpen={setOpen} write={(next) => edit(i, { Children: next })} />}
           </div>)
@@ -98,7 +108,7 @@ function Rows({ cols, path, open, setOpen, write }: { cols: Col[]; path: number[
   )
 }
 
-function PreviewPanel({ job, id, name, type }: { job: string; id: string; name: string; type: string }) {
+export function PreviewPanel({ job, id, name, type }: { job: string; id: string; name: string; type: string }) {
   const rev = useDag((s) => s.jobs[job]?.rev)
   const [res, setRes] = useState<PreviewResult | null>(null)
   const [busy, setBusy] = useState(false)
@@ -141,8 +151,8 @@ function PreviewPanel({ job, id, name, type }: { job: string; id: string; name: 
           <button className="quiet" onClick={() => setPicker(!picker)}><Icon name="schema" size={12} />Previewing {cols.length} of {allCols.length} fields</button>
           {picker && (
             <div style={{ maxHeight: 180, overflow: 'auto', marginTop: 6 }}>
-              <label className="row" style={{ gap: 6, fontSize: 11, color: 'var(--dim)' }}><input type="checkbox" checked={hidden.length === 0} onChange={(e) => setHidden(e.target.checked ? [] : allCols.slice(1))} />all</label>
-              {allCols.map((c) => <label key={c} className="row" style={{ gap: 6, fontSize: 12 }}><input type="checkbox" checked={!hidden.includes(c)} onChange={() => setHidden(hidden.includes(c) ? hidden.filter((x) => x !== c) : [...hidden, c])} /><span className="mono">{c}</span></label>)}
+              <label className="row" style={{ gap: 6, fontSize: 'var(--micro)', color: 'var(--dim)' }}><input type="checkbox" checked={hidden.length === 0} onChange={(e) => setHidden(e.target.checked ? [] : allCols.slice(1))} />all</label>
+              {allCols.map((c) => <label key={c} className="row" style={{ gap: 6, fontSize: 'var(--small)' }}><input type="checkbox" checked={!hidden.includes(c)} onChange={() => setHidden(hidden.includes(c) ? hidden.filter((x) => x !== c) : [...hidden, c])} /><span className="mono">{c}</span></label>)}
             </div>)}
         </div>)}
       {busy && <div className="insp-section dim small"><span className="dot live" style={{ color: 'var(--accent)', marginRight: 6 }} />Running <b>{name}</b> and everything upstream in the Glue 5 container. The first one starts Spark (~20s); after that the engine stays warm and a preview is about a second.</div>}

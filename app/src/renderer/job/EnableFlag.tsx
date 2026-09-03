@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '@/api/client'
 import { Icon } from '@/shell/Icon'
+import { confirm } from '@/shell/Confirm'
 import { useToast } from '@/shell/Toast'
 
 type What = 'metrics' | 'insights' | 'sparkui'
@@ -22,6 +23,11 @@ export function EnableFlag({ job, what, onDone }: { job: string; what: What; onD
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState<string | null>(null)
   const go = async () => {
+    if (!await confirm({
+      title: `${LABEL[what]} for ${job}?`,
+      confirmLabel: LABEL[what],
+      body: `This changes the job definition in AWS. It takes effect on the next run — the run on screen is unaffected.`,
+    })) return
     setBusy(true)
     const r = await api.post<{ changed: string[]; note: string }>(
       `/api/glue/jobs/${encodeURIComponent(job)}/observability?what=${what}`, {}, 'the job setting', 60_000)

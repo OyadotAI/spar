@@ -2,6 +2,7 @@ import { api } from '@/api/client'
 import { useState } from 'react'
 import { useToast } from '@/shell/Toast'
 import { useApp } from '@/stores/app'
+import { useGlue } from '@/stores/glue'
 
 const REGIONS = ['us-east-1', 'us-east-2', 'us-west-1', 'us-west-2', 'ca-central-1', 'eu-west-1', 'eu-west-2', 'eu-west-3', 'eu-central-1', 'eu-north-1', 'eu-south-1',
   'ap-south-1', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-1', 'ap-northeast-2', 'ap-northeast-3', 'sa-east-1', 'me-south-1', 'af-south-1']
@@ -16,6 +17,12 @@ export function ProfilePicker() {
     setBusy(false)
     if (!r.ok) { useToast.getState().fail('switch profile', r.fault); return }
     await refreshState()
+    // clear first, then re-read: the list on screen is the old account's until this lands
+    const st = useApp.getState().state
+    useGlue.setState({ jobs: [], loaded: false, failure: undefined, refreshedAt: undefined, stale: false, offline: null })
+    useGlue.getState().accountChanged(st?.profile, st?.region)
+    void useGlue.getState().refresh()
+    void useGlue.getState().refreshLocal()
     useToast.getState().done(profile ? `Using ${profile}` : `Region ${region}`, 'Reading jobs…')
   }
   return (

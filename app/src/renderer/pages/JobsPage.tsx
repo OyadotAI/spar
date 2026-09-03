@@ -3,7 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
 import { Icon } from '@/shell/Icon'
 import { useApp } from '@/stores/app'
-import { useGlue, filteredJobs } from '@/stores/glue'
+import { useGlue, filteredJobs, type LocalJob } from '@/stores/glue'
 import { useTerminal } from '@/stores/terminal'
 import { useLanes } from '@/stores/lanes'
 import { ago, duration, isRunning, stateTone } from '@/shell/format'
@@ -15,8 +15,9 @@ import { confirm } from '@/shell/Confirm'
 import { useEscape } from '@/shell/useEscape'
 import { prompt } from '@/shell/Prompt'
 import { onEvent } from '@/events'
+import { RunSheet } from '@/console/RunSheet'
+import { Sheet } from '@/shell/Sheet'
 
-const COLS = 'minmax(220px, 2fr) 90px 80px 60px 110px 130px 110px 100px 90px'
 
 function useMonitor(enabled: boolean, hours: number): MonitorReply | null {
   const [m, setM] = useState<MonitorReply | null>(null)
@@ -31,20 +32,35 @@ function useMonitor(enabled: boolean, hours: number): MonitorReply | null {
   return m
 }
 
-function Tiles({ m, hours, setHours }: { m: MonitorReply; hours: number; setHours: (h: number) => void }) {
-  const T = ({ k, v, tone }: { k: string; v: React.ReactNode; tone?: string }) => <div className="tile"><span className="eyebrow">{k}</span><div className="n" style={tone ? { color: tone } : undefined}>{v}</div></div>
+/**
+ * The run summary, as one strip rather than eight cards.
+ *
+ * This page is a list of jobs; the dashboard is the Monitoring section next door. Eight equal-weight
+ * tiles wrapping into a ragged grid pushed the actual content below the fold and made nothing look
+ * primary. Same numbers, one line, no boxes — and only the failure count keeps a colour.
+ */
+function Summary({ m, hours, setHours }: { m: MonitorReply; hours: number; setHours: (h: number) => void }) {
   const rate = m.total ? Math.round((m.succeeded / Math.max(1, m.succeeded + m.failed)) * 100) : null
+  const S = ({ k, v, tone }: { k: string; v: React.ReactNode; tone?: string }) => (
+    <div className="stat"><span className="k">{k}</span><span className="v" style={tone ? { color: tone } : undefined}>{v}</span></div>)
   return (
-    <div className="tiles">
-      <div className="tile"><span className="eyebrow">Runs</span><div className="row" style={{ marginTop: 4 }}><span className="n" style={{ marginTop: 0 }}>{m.total}</span><span className="fill" />
-        <select value={hours} onChange={(e) => setHours(Number(e.target.value))} style={{ fontSize: 11, padding: '1px 18px 1px 6px' }}><option value={24}>24h</option><option value={72}>3d</option><option value={168}>7d</option><option value={720}>30d</option></select></div></div>
-      <T k="Success rate" v={rate == null ? '—' : `${rate}%`} tone={rate != null && rate < 100 ? 'var(--warn)' : undefined} />
-      <T k="Succeeded" v={m.succeeded} tone={m.succeeded ? 'var(--add)' : undefined} />
-      <T k="Failed" v={m.failed} tone={m.failed ? 'var(--del)' : undefined} />
-      <T k="Running now" v={m.running} tone={m.running ? 'var(--accent)' : undefined} />
-      <T k="Stopped" v={m.stopped} />
-      <T k="DPU-hours" v={m.dpuHours.toFixed(2)} />
-      <T k="Execution hours" v={m.executionHours.toFixed(2)} />
+    <div className="stats">
+      <div className="stat">
+        <label className="k" htmlFor="stats-range">Runs</label>
+        <span className="row" style={{ gap: 6 }}>
+          <span className="v">{m.total}</span>
+          <select id="stats-range" className="quiet-select" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+            <option value={24}>24h</option><option value={72}>3d</option><option value={168}>7d</option><option value={720}>30d</option>
+          </select>
+        </span>
+      </div>
+      <S k="Success" v={rate == null ? '—' : `${rate}%`} />
+      <S k="Succeeded" v={m.succeeded} />
+      <S k="Failed" v={m.failed} tone={m.failed ? 'var(--del)' : undefined} />
+      <S k="Running" v={m.running} tone={m.running ? 'var(--accent)' : undefined} />
+      <S k="Stopped" v={m.stopped} />
+      <S k="DPU-hours" v={m.dpuHours.toFixed(2)} />
+      <S k="Exec hours" v={m.executionHours.toFixed(2)} />
     </div>
   )
 }
@@ -58,6 +74,10 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
   const openTerminal = useTerminal((s) => s.openWith)
   useEffect(() => { if (!loaded && connection === 'connected') { void refresh(); void refreshLocal() } }, [loaded, connection, refresh, refreshLocal])
   const drafts = local.filter((l) => !jobs.some((j) => j.name === l.name))
+  const draftRows = useMemo(() => {
+    const n = query.trim().toLowerCase()
+    return n ? drafts.filter((l) => l.name.toLowerCase().includes(n)) : drafts
+  }, [drafts, query])
   const [hours, setHours] = useState(24)
   useEscape(newName !== null, () => setNewName(null))
   const monitor = useMonitor(loaded && auth.kind === 'ok' && jobs.length > 0, hours)
@@ -96,8 +116,8 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
   else if (failure) body = <FaultState fault={failure} retry={() => void refresh()} />
   else if (!loaded) body = <EmptyState title="Reading jobs…">First look at {state.region ?? 'the region'}.</EmptyState>
   else if (jobs.length === 0) body = <EmptyState title={`No Glue jobs in ${state.region ?? 'this region'}`} actions={<button className="primary" onClick={() => { setNewName(''); setNewErr(null) }}><Icon name="plus" />New job</button>}>Jobs created in the console or by API appear here within a few seconds.</EmptyState>
-  else if (rows.length === 0) body = <EmptyState title="No job matches">Nothing named like “{query}”.</EmptyState>
-  else body = <Table rows={rows} onOpen={onOpen} />
+  else if (rows.length === 0 && draftRows.length === 0) body = <EmptyState title="No job matches">Nothing named like “{query}”.</EmptyState>
+  else body = <Table rows={rows} drafts={draftRows} onOpen={onOpen} />
 
   return (
     <div className="col" style={{ height: '100%' }}>
@@ -111,50 +131,58 @@ export function JobsPage({ onOpen }: { onOpen: (job: { name: string }) => void }
           <ProfilePicker />
           <div style={{ position: 'relative' }}>
             <Icon name="search" size={12} style={{ position: 'absolute', left: 8, top: 8, color: 'var(--faint)' }} />
-            <input placeholder="Search jobs" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 220, paddingLeft: 26 }} />
+            <input placeholder="Search jobs" data-search aria-label="Search jobs" value={query} onChange={(e) => setQuery(e.target.value)} style={{ width: 220, paddingLeft: 26 }} />
           </div>
           <button onClick={() => { setNewName(''); setNewErr(null) }} title="A job that lives only here until you deploy it"><Icon name="plus" />New job</button>
           <button className="quiet" onClick={() => void importJson()} title="Create a job from an exported job JSON"><Icon name="download" />Import</button>
-          <button className="quiet" onClick={() => void refresh()} title="Re-read now (the list also updates on its own)"><Icon name="refresh" /></button>
+          <button className="quiet" onClick={() => void refresh()} aria-label="Refresh the job list" title="Re-read now (the list also updates on its own)"><Icon name="refresh" /></button>
         </div>
       </div>
-      {drafts.length > 0 && (
-        <div className="drafts row" style={{ flexWrap: 'wrap' }}>
-          <span className="eyebrow">Local only</span>
-          {drafts.map((l) => <button key={l.name} className="quiet" onClick={() => onOpen({ name: l.name })} title={`jobs/${l.name} on ${l.lane.branch ?? 'the project branch'} — not in AWS yet`}>{l.name}<span className="pill">draft</span></button>)}
-        </div>)}
       {stale && (
         <div className="row offline-note">
           <Icon name="clock" size={13} />
           <span className="fill">Showing the last listing{refreshedAt ? `, as of ${ago(refreshedAt)}` : ''}. {offline ?? 'AWS has not answered yet.'}</span>
           <button className="quiet" onClick={() => void refresh()}>Try again</button>
         </div>)}
-      {monitor && loaded && auth.kind === 'ok' && jobs.length > 0 && <Tiles m={monitor} hours={hours} setHours={setHours} />}
+      {monitor && loaded && auth.kind === 'ok' && jobs.length > 0 && <Summary m={monitor} hours={hours} setHours={setHours} />}
       <div className="fill" style={{ minHeight: 0 }}>{body}</div>
       {newName !== null && (
-        <div className="sheet-backdrop" onClick={() => setNewName(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ width: 440 }}>
-            <h2 style={{ marginBottom: 6 }}>New job</h2>
-            <p className="dim" style={{ margin: '0 0 12px' }}>Creates <code>jobs/&lt;name&gt;</code> on its own branch. It reaches AWS only when you deploy.</p>
-            <input autoFocus className="mono" placeholder="orders-daily-etl" value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%' }} onKeyDown={(e) => { if (e.key === 'Enter') void create() }} />
-            {newErr && <div style={{ color: 'var(--del)', fontSize: 12, marginTop: 6 }}>{newErr}</div>}
-            <div className="row" style={{ marginTop: 14, justifyContent: 'flex-end' }}><button onClick={() => setNewName(null)}>Cancel</button><button className="primary" onClick={() => void create()}>Create</button></div>
-          </div>
-        </div>)}
+        <Sheet label="New job" width={440} onClose={() => setNewName(null)} dirty={newName.length > 0}>
+          <h2>New job</h2>
+          <p className="dim" style={{ marginTop: 0 }}>Creates <code>jobs/&lt;name&gt;</code> on its own branch. It reaches AWS only when you deploy.</p>
+          <input autoFocus className="mono" aria-label="Job name" placeholder="orders-daily-etl" value={newName} onChange={(e) => setNewName(e.target.value)} style={{ width: '100%' }} onKeyDown={(e) => { if (e.key === 'Enter') void create() }} />
+          {newErr && <div className="small" style={{ color: 'var(--del)', marginTop: 6 }} role="alert">{newErr}</div>}
+          <div className="row" style={{ marginTop: 14, justifyContent: 'flex-end' }}><button onClick={() => setNewName(null)}>Cancel</button><button className="primary" onClick={() => void create()}>Create</button></div>
+        </Sheet>)}
     </div>
   )
 }
 
-function Table({ rows, onOpen }: { rows: GlueJob[]; onOpen: (j: GlueJob) => void }) {
+/**
+ * One list, two sections.
+ *
+ * Local-only jobs used to sit in a chip strip above the table, which read as a notice rather than
+ * as jobs — so the page showed two things in two shapes. They are rows now, under a "Local" head,
+ * with what a job that has never reached AWS can honestly say and dashes for the rest.
+ */
+type Item =
+  | { kind: 'head'; key: string; label: string; note: string }
+  | { kind: 'job'; key: string; job: GlueJob }
+  | { kind: 'draft'; key: string; draft: LocalJob }
+
+function Table({ rows, drafts, onOpen }: { rows: GlueJob[]; drafts: LocalJob[]; onOpen: (j: { name: string }) => void }) {
   const parent = useRef<HTMLDivElement>(null)
   const [selected, setSelected] = useState<string | null>(null)
-  const [menu, setMenu] = useState<{ job: GlueJob; x: number; y: number } | null>(null)
+  // one click opens the actions menu: double-click-to-open was the only way in and nothing said so
+  const [menu, setMenu] = useState<{ job?: GlueJob; draft?: LocalJob; x: number; y: number } | null>(null)
+  // Run means the same thing here as it does in a job tab: the arguments sheet, then the run.
+  // It used to fire a real cloud run straight from the context menu with no arguments and no confirm.
+  const [runFor, setRunFor] = useState<GlueJob | null>(null)
   const refresh = useGlue((s) => s.refresh)
   const act = async (j: GlueJob, what: 'run' | 'clone' | 'delete' | 'export') => {
     setMenu(null)
     if (what === 'run') {
-      const r = await tell(`start ${j.name}`, api.post<{ runId: string }>(`/api/glue/jobs/${encodeURIComponent(j.name)}/runs`, {}, `starting ${j.name}`))
-      if (r) useToast.getState().done(`${j.name} started`, r.runId.slice(3, 19) + '…')
+      setRunFor(j)
     } else if (what === 'clone') {
       const n = await prompt({ title: `Clone ${j.name}`, body: 'A copy of the job definition, including its DAG, under a new name in AWS.', value: `${j.name}-copy`, mono: true, confirmLabel: 'Clone' })
       if (n && await tell('clone the job', api.post<{ name: string }>(`/api/glue/jobs/${encodeURIComponent(j.name)}/clone`, { newName: n }, 'cloning'), `Cloned to ${n}`)) void refresh()
@@ -168,61 +196,134 @@ function Table({ rows, onOpen }: { rows: GlueJob[]; onOpen: (j: GlueJob) => void
     }
   }
   useEscape(!!menu, () => setMenu(null))
-  const v = useVirtualizer({ count: rows.length, getScrollElement: () => parent.current, estimateSize: () => 36, overscan: 12 })
+  const items = useMemo<Item[]>(() => {
+    const out: Item[] = []
+    if (drafts.length) {
+      out.push({ kind: 'head', key: 'h-local', label: 'Local only', note: `${drafts.length} not in AWS yet — deploy to create them` })
+      for (const d of drafts) out.push({ kind: 'draft', key: 'd-' + d.name, draft: d })
+    }
+    if (rows.length) {
+      if (drafts.length) out.push({ kind: 'head', key: 'h-aws', label: 'In AWS', note: `${rows.length} job${rows.length > 1 ? 's' : ''} in this region` })
+      for (const j of rows) out.push({ kind: 'job', key: 'j-' + j.name, job: j })
+    }
+    return out
+  }, [rows, drafts])
+  const v = useVirtualizer({ count: items.length, getScrollElement: () => parent.current, estimateSize: (i) => (items[i]?.kind === 'head' ? 30 : 36), overscan: 12 })
   return (
-    <div className="col" style={{ height: '100%' }}>
-      <div className="jobs-head" style={{ gridTemplateColumns: COLS }}>
-        <span>Name</span><span>Type</span><span>Mode</span><span>Glue</span><span>Workers</span><span>Last run</span><span>Started</span><span>Modified</span><span>Duration</span>
+    <div className="col jobs-table" style={{ height: '100%' }}>
+      <div className="jobs-head">
+        <span>Name</span><span className="opt">Type</span><span className="opt">Mode</span><span className="opt">Glue</span><span className="opt">Workers</span>
+        <span>Last run</span><span>Started</span><span>Modified</span><span>Duration</span>
       </div>
       <div ref={parent} className="fill" style={{ overflow: 'auto' }} tabIndex={0}
         onKeyDown={(e) => {
-          const at = rows.findIndex((r) => r.name === selected)
-          if (e.key === 'Enter' && at >= 0) onOpen(rows[at]!)
+          const pickable = items.filter((x) => x.kind !== 'head')
+          const at = pickable.findIndex((r) => (r.kind === 'job' ? r.job.name : r.kind === 'draft' ? r.draft.name : '') === selected)
+          const nameOf = (x: Item) => (x.kind === 'job' ? x.job.name : x.kind === 'draft' ? x.draft.name : '')
+          if (e.key === 'Enter' && at >= 0) onOpen({ name: nameOf(pickable[at]!) })
           else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
             e.preventDefault()
-            const next = Math.min(rows.length - 1, Math.max(0, (at < 0 ? -1 : at) + (e.key === 'ArrowDown' ? 1 : -1)))
-            const j = rows[next]
-            if (j) { setSelected(j.name); v.scrollToIndex(next, { align: 'auto' }) }
+            const next = Math.min(pickable.length - 1, Math.max(0, (at < 0 ? -1 : at) + (e.key === 'ArrowDown' ? 1 : -1)))
+            const j = pickable[next]
+            if (j) { setSelected(nameOf(j)); v.scrollToIndex(items.indexOf(j), { align: 'auto' }) }
           } else if (e.key === 'Home' || e.key === 'End') {
             e.preventDefault()
-            const n = e.key === 'Home' ? 0 : rows.length - 1
-            const j = rows[n]
-            if (j) { setSelected(j.name); v.scrollToIndex(n, { align: 'auto' }) }
+            const j = pickable[e.key === 'Home' ? 0 : pickable.length - 1]
+            if (j) { setSelected(nameOf(j)); v.scrollToIndex(items.indexOf(j), { align: 'auto' }) }
           }
         }}>
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {v.getVirtualItems().map((it) => {
-            const j = rows[it.index]!; const r = j.latestRun
+            const item = items[it.index]!
+            const style = { transform: `translateY(${it.start}px)`, height: it.size } as const
+
+            if (item.kind === 'head') return (
+              <div key={item.key} className="jobs-group" style={style}>
+                <span>{item.label}</span><span className="faint">{item.note}</span>
+              </div>)
+
+            if (item.kind === 'draft') {
+              const l = item.draft
+              return (
+                <div key={item.key} className={'jobs-row' + (selected === l.name ? ' selected' : '')} style={style}
+                  onClick={(e) => { setSelected(l.name); setMenu({ draft: l, x: e.clientX, y: e.clientY }) }}
+                  onDoubleClick={() => { setMenu(null); onOpen({ name: l.name }) }}
+                  onContextMenu={(e) => { e.preventDefault(); setSelected(l.name); setMenu({ draft: l, x: e.clientX, y: e.clientY }) }}>
+                  <span className="row" style={{ gap: 8, minWidth: 0 }}>
+                    <span className="name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.name}</span>
+                    <span className="pill" title={`jobs/${l.name} on ${l.lane.branch ?? 'the project branch'} — not in AWS yet`}>draft</span>
+                    {l.lane.dirty ? <span className="pill warn" title="uncommitted changes in its lane">{l.lane.dirty} changed</span> : null}
+                  </span>
+                  {/* a job that has never reached AWS has no type, mode, version or run history */}
+                  <span className="dim small opt">{l.hasDag ? 'Spark' : '—'}</span>
+                  <span className="dim small opt">{l.hasDag ? 'visual' : '—'}</span>
+                  <span className="dim fig small opt">—</span>
+                  <span className="dim fig small opt">—</span>
+                  <span><span className="faint small">not deployed</span></span>
+                  <span className="dim fig small">—</span>
+                  <span className="dim fig small">—</span>
+                  <span className="row dim fig small" style={{ gap: 4 }}>{[l.hasScript && 'script', l.hasTests && 'tests'].filter(Boolean).join(' · ') || '—'}<span className="fill" />
+                    <button className="quiet" style={{ padding: 2, minHeight: 0 }} aria-label={`Actions for ${l.name}`} onClick={(e) => { e.stopPropagation(); setMenu({ draft: l, x: e.clientX, y: e.clientY }) }}><Icon name="more" size={14} /></button></span>
+                </div>)
+            }
+
+            const j = item.job; const r = j.latestRun
             return (
-              <div key={j.name} className={'jobs-row' + (selected === j.name ? ' selected' : '')} style={{ gridTemplateColumns: COLS, transform: `translateY(${it.start}px)`, height: it.size }}
-                onClick={() => setSelected(j.name)} onDoubleClick={() => onOpen(j)} onContextMenu={(e) => { e.preventDefault(); setSelected(j.name); setMenu({ job: j, x: e.clientX, y: e.clientY }) }}>
+              <div key={item.key} className={'jobs-row' + (selected === j.name ? ' selected' : '')} style={style}
+                onClick={(e) => { setSelected(j.name); setMenu({ job: j, x: e.clientX, y: e.clientY }) }}
+                onDoubleClick={() => { setMenu(null); onOpen(j) }}
+                onContextMenu={(e) => { e.preventDefault(); setSelected(j.name); setMenu({ job: j, x: e.clientX, y: e.clientY }) }}>
                 <span className="row" style={{ gap: 8, minWidth: 0 }}>
                   <span className="name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{j.name}</span>
                   {j.local?.imported && <span className="pill" title="has a local folder">local</span>}
                   {j.local?.remoteChanged && <span className="pill warn" title="changed in AWS since you imported it">remote changed</span>}
                 </span>
-                <span className="dim small">{j.commandName === 'gluestreaming' ? 'Streaming' : j.commandName === 'pythonshell' ? 'Python shell' : j.commandName === 'glueray' ? 'Ray' : 'Spark'}</span>
-                <span className="dim small">{(j.jobMode ?? 'SCRIPT').toLowerCase()}</span>
-                <span className="dim fig small">{j.glueVersion ?? '—'}</span>
-                <span className="dim fig small">{j.workerType ? `${j.workerType} × ${j.numberOfWorkers ?? '?'}` : '—'}</span>
+                <span className="dim small opt">{j.commandName === 'gluestreaming' ? 'Streaming' : j.commandName === 'pythonshell' ? 'Python shell' : j.commandName === 'glueray' ? 'Ray' : 'Spark'}</span>
+                <span className="dim small opt">{(j.jobMode ?? 'SCRIPT').toLowerCase()}</span>
+                <span className="dim fig small opt">{j.glueVersion ?? '—'}</span>
+                <span className="dim fig small opt">{j.workerType ? `${j.workerType} × ${j.numberOfWorkers ?? '?'}` : '—'}</span>
                 <span>{r ? <span className={'pill ' + stateTone(r.state)}>{isRunning(r.state) && <span className="dot live" />}{r.state.toLowerCase()}</span> : <span className="faint small">never ran</span>}</span>
                 <span className="dim fig small" title={r?.startedOn}>{ago(r?.startedOn)}</span>
                 <span className="dim fig small" title={j.lastModifiedOn}>{ago(j.lastModifiedOn)}</span>
-                <span className="row dim fig small" style={{ gap: 4 }}>{duration(r?.executionTime, r?.startedOn, isRunning(r?.state))}<span className="fill" /><button className="quiet" style={{ padding: 2 }} onClick={(e) => { e.stopPropagation(); setMenu({ job: j, x: e.clientX, y: e.clientY }) }}><Icon name="more" size={14} /></button></span>
+                <span className="row dim fig small" style={{ gap: 4 }}>{duration(r?.executionTime, r?.startedOn, isRunning(r?.state))}<span className="fill" /><button className="quiet" style={{ padding: 2, minHeight: 0 }} aria-label={`Actions for ${j.name}`} onClick={(e) => { e.stopPropagation(); setMenu({ job: j, x: e.clientX, y: e.clientY }) }}><Icon name="more" size={14} /></button></span>
               </div>)
           })}
         </div>
       </div>
+      {runFor && (
+        <RunSheet initial={{}} onClose={() => setRunFor(null)} onRun={(args) => {
+          const j = runFor; setRunFor(null)
+          void tell(`start ${j.name}`, api.post<{ runId: string }>(`/api/glue/jobs/${encodeURIComponent(j.name)}/runs`, { arguments: args }, `starting ${j.name}`))
+            .then((r) => { if (r) useToast.getState().done(`${j.name} started`, r.runId.slice(3, 19) + '…') })
+        }} />)}
       {menu && (
         <div className="sheet-backdrop" style={{ background: 'transparent', backdropFilter: 'none' }} onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null) }}>
-          <div className="menu" style={{ left: Math.min(menu.x, window.innerWidth - 200), top: Math.min(menu.y, window.innerHeight - 200), position: 'fixed' }} onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => { setMenu(null); onOpen(menu.job) }}><Icon name="folder" />Open</button>
-            <button onClick={() => void act(menu.job, 'run')}><Icon name="play" />Run</button>
-            <div className="sep" />
-            <button onClick={() => void act(menu.job, 'clone')}><Icon name="copy" />Clone…</button>
-            <button onClick={() => void act(menu.job, 'export')}><Icon name="download" />Export JSON…</button>
-            <div className="sep" />
-            <button className="danger" onClick={() => void act(menu.job, 'delete')}><Icon name="trash" />Delete from AWS…</button>
+          <div className="menu" role="menu" aria-label={`Actions for ${menu.job?.name ?? menu.draft!.name}`}
+            ref={(el) => el?.querySelector('button')?.focus()}
+            style={{ left: Math.min(menu.x, window.innerWidth - 210), top: Math.min(menu.y, window.innerHeight - 210), position: 'fixed' }}
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+              e.preventDefault()
+              const items = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button')]
+              const at = items.indexOf(document.activeElement as HTMLButtonElement)
+              items[(at + (e.key === 'ArrowDown' ? 1 : items.length - 1) + items.length) % items.length]?.focus()
+            }}>
+            <button role="menuitem" onClick={() => { const n = menu.job?.name ?? menu.draft!.name; setMenu(null); onOpen({ name: n }) }}><Icon name="folder" />Open</button>
+            {menu.draft && <>
+              <div className="sep" />
+              <button role="menuitem" onClick={() => { const n = menu.draft!.name; setMenu(null); void import('@/authoring/store').then((m) => m.useAuthoring.getState().deploy(n, true)) }}>
+                <Icon name="deploy" />Deploy to AWS…
+              </button>
+            </>}
+            {menu.job && <>
+              <button role="menuitem" onClick={() => void act(menu.job!, 'run')}><Icon name="play" />Run…</button>
+              <div className="sep" />
+              <button role="menuitem" onClick={() => void act(menu.job!, 'clone')}><Icon name="copy" />Clone…</button>
+              <button role="menuitem" onClick={() => void act(menu.job!, 'export')}><Icon name="download" />Export JSON…</button>
+              <div className="sep" />
+              <button role="menuitem" className="danger" onClick={() => void act(menu.job!, 'delete')}><Icon name="trash" />Delete from AWS…</button>
+            </>}
           </div>
         </div>)}
     </div>

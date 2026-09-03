@@ -4,6 +4,8 @@ import { onEvent } from '@/events'
 import { Icon } from './Icon'
 import { prompt } from './Prompt'
 import { tell } from './Toast'
+import { EmptyState } from './EmptyState'
+import { DiffView } from './DiffView'
 
 type Git = { branch?: string; head?: string; dirty: { status: string; path: string }[] }
 const cache = new Map<string, Git>()
@@ -15,11 +17,28 @@ function useGit(job: string): [Git | null, () => Promise<void>] {
   return [g, load]
 }
 
-/** One line about the job's lane: its branch, what is uncommitted, and a Commit button. */
-export function GitBar({ job }: { job: string }) {
+/**
+ * One control, not four. The branch and the uncommitted count used to sit in the middle of the
+ * action bar as separate elements with a Commit button wedged between navigation and actions;
+ * now it is a single pill that opens the Changes section, where committing belongs.
+ */
+export function GitPill({ job, onOpen }: { job: string; onOpen: () => void }) {
+  const [g] = useGit(job)
+  if (!g?.branch) return null
+  const n = g.dirty.length
+  return (
+    <button className={'pill' + (n ? ' warn' : '')} onClick={onOpen}
+      title={n ? `${n} uncommitted in this job's worktree — open Changes` : `${g.branch} is clean`}>
+      <Icon name="git" size={11} />{g.branch}{n > 0 && <> · {n}</>}
+    </button>
+  )
+}
+
+/** The Changes section: what is uncommitted on this job's branch, and the one button that commits it. */
+export function ChangesPanel({ job }: { job: string }) {
   const [g, load] = useGit(job)
   const [busy, setBusy] = useState(false)
-  if (!g?.branch) return null
+  if (!g) return <EmptyState title="Reading the worktree…" />
   const commit = async () => {
     const message = await prompt({ title: `Commit ${g.dirty.length} change${g.dirty.length > 1 ? 's' : ''}`, body: `On ${g.branch}. Everything uncommitted in this job's worktree.`, value: `keel: ${job}`, confirmLabel: 'Commit' })
     if (message === null) return
@@ -27,22 +46,15 @@ export function GitBar({ job }: { job: string }) {
     await tell('commit', api.post<{ commit: string | null }>(`/api/jobs/${encodeURIComponent(job)}/commit`, { message }, 'the commit'), 'Committed')
     setBusy(false); void load()
   }
+  if (!g.dirty.length) return <EmptyState title="Nothing uncommitted">Everything in this job's worktree is committed on <code>{g.branch}</code>.</EmptyState>
   return (
-    <span className="row dim small" style={{ gap: 6, marginLeft: 8 }} title={g.dirty.map((d) => `${d.status} ${d.path}`).join('\n')}>
-      <Icon name="git" size={12} style={{ color: 'var(--faint)' }} /><span>{g.branch}</span>
-      {g.head && <span className="fig faint">{g.head}</span>}
-      {g.dirty.length > 0 ? <><span className="fig" style={{ color: 'var(--warn)' }}>{g.dirty.length} changed</span><button className="quiet" disabled={busy} onClick={() => void commit()}>Commit</button></> : <span className="faint">clean</span>}
-    </span>
+    <div className="col" style={{ height: '100%' }}>
+      <div className="seg-bar">
+        <span className="eyebrow">{g.dirty.length} uncommitted on {g.branch}</span>
+        <span className="fill" />
+        <button className="primary" disabled={busy} onClick={() => void commit()}><Icon name="commit" />{busy ? 'Committing…' : 'Commit'}</button>
+      </div>
+      <div className="fill" style={{ minHeight: 0 }}><DiffView job={job} /></div>
+    </div>
   )
-}
-
-export function ChangesPanel({ job }: { job: string }) {
-  const [g] = useGit(job)
-  if (!g) return <div className="faint small" style={{ padding: 12 }}>Reading…</div>
-  if (!g.dirty.length) return <div className="faint small" style={{ padding: 12 }}>Nothing uncommitted on {g.branch}.</div>
-  return <div style={{ padding: '4px 0' }}>{g.dirty.map((d) => (
-    <div key={d.path} className="panel-row" title={d.path}>
-      <span className="fig" style={{ width: 18, color: d.status.includes('?') ? 'var(--add)' : d.status.includes('D') ? 'var(--del)' : 'var(--warn)' }}>{d.status || 'M'}</span>
-      <span className="mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.path.replace(/^jobs\/[^/]+\//, '')}</span>
-    </div>))}</div>
 }

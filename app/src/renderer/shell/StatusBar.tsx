@@ -30,7 +30,7 @@ export function StatusBar() {
         </span>)}
       <span className="fill" />
       <span className="faint" title={state?.project ?? undefined}>{state?.project?.split(/[\\/]/).pop() ?? 'no project'}</span>
-      <button className="quiet" onClick={() => toggle('showSettings')}><Icon name="gear" size={12} /></button>
+      <button className="quiet" title="Settings ⌘," onClick={() => toggle('showSettings', true)}><Icon name="gear" size={12} />Settings</button>
       <button className={'quiet' + (term.open ? ' on' : '')} onClick={() => term.toggle()} title="Terminal ⌘⌥T"><Icon name="terminal" size={12} />Terminal</button>
     </div>
   )

@@ -11,7 +11,14 @@ export function TerminalPane({ cwd, run }: { cwd?: string; run?: string }) {
   const port = useApp((s) => s.port)
   useEffect(() => {
     if (!box.current || !port) return
-    const term = new XTerm({ fontFamily: 'var(--mono)', fontSize: 12, cursorBlink: true, theme: { background: '#0c0d0f' }, allowProposedApi: true })
+    // xterm writes these into a canvas font string, where a CSS variable never resolves —
+    // read the computed value instead, or the terminal silently falls back to the default mono.
+    const css = getComputedStyle(document.documentElement)
+    const term = new XTerm({
+      fontFamily: css.getPropertyValue('--mono').trim() || 'monospace',
+      fontSize: Number(css.getPropertyValue('--small').replace('px', '')) || 12,
+      cursorBlink: true, theme: { background: '#0c0d0f' }, allowProposedApi: true,
+    })
     const fit = new FitAddon()
     term.loadAddon(fit)
     term.open(box.current)

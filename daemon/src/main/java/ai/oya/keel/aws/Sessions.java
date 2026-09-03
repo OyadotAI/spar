@@ -93,6 +93,34 @@ public class Sessions {
         return Map.of("id", statement, "state", "RUNNING", "note", "still running after 15 minutes; poll /statements/" + statement);
     }
 
+    /**
+     * Every statement this session has run, oldest first.
+     *
+     * Glue is the record while the session is alive, so the notebook is read back from the account
+     * rather than living in the window — a reload keeps the history, and a session someone else
+     * started can be opened and read.
+     *
+     * The catch, and it is why this returns an object rather than a list: Glue answers
+     * ListStatements with a 400 once the session is anything but READY. The history of a stopped
+     * session is not retrievable at all, so say that plainly instead of returning an empty list
+     * that reads as "nothing ever ran here".
+     */
+    @GetMapping("/api/glue/sessions/{id}/statements")
+    public Map<String, Object> statements(@PathVariable String id) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        try {
+            for (Statement s : aws.glue().listStatements(b -> b.sessionId(id)).statements()) out.add(statementMap(s));
+        } catch (software.amazon.awssdk.services.glue.model.GlueException e) {
+            // Glue answers "Session is not ready" as a plain 400, not always as
+            // IllegalSessionStateException, so match on the status rather than the class.
+            if (e.statusCode() != 400) throw e;
+            return Map.of("readable", false, "statements", out,
+                "why", "Glue serves a session's statement history only while the session is running.");
+        }
+        out.sort((a, b) -> Double.compare(((Number) a.get("id")).doubleValue(), ((Number) b.get("id")).doubleValue()));
+        return Map.of("readable", true, "statements", out);
+    }
+
     @GetMapping("/api/glue/sessions/{id}/statements/{sid}")
     public Map<String, Object> statement(@PathVariable String id, @PathVariable int sid) {
         return statementMap(aws.glue().getStatement(b -> b.sessionId(id).id(sid)).statement());

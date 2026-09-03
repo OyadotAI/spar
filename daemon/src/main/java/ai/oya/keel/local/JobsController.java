@@ -11,8 +11,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -88,6 +88,17 @@ public class JobsController {
         m.put("branch", Git.branch(d));
         m.put("head", Git.head(d));
         m.put("dirty", Git.status(d));
+        return m;
+    }
+
+    /** The uncommitted work in the lane, as a unified diff — what the agent changed, in review form. */
+    @GetMapping("/api/jobs/{name}/diff")
+    public Map<String, Object> diff(@PathVariable String name, @RequestParam(required = false) String path) {
+        Path d = lanes.dirFor(name);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("branch", Git.branch(d));
+        m.put("head", Git.head(d));
+        m.put("diff", Git.diff(d, path));
         return m;
     }
 

@@ -1,5 +1,7 @@
 import { create } from 'zustand'
 import { useToast } from '@/shell/Toast'
+import { confirm } from '@/shell/Confirm'
+import { useApp } from '@/stores/app'
 import { useOps } from '@/shell/Ops'
 import { api, type Fault } from '@/api/client'
 import { subscribe, type Sse } from '@/api/sse'
@@ -98,7 +100,22 @@ export const useAuthoring = create<Store>((set, get) => ({
     runs.set(key, s2)
   },
   stopTests: async (job) => { await api.post(`/api/jobs/${encodeURIComponent(job)}/test/stop`, {}, 'stopping tests'); runs.get(job)?.close(); runs.delete(job); patch(set, job, { running: false }) },
+  /**
+   * The only write this app makes to a live Glue job, and it was the only one with no confirmation
+   * while every delete had two. Confirming here rather than at the button covers all three entry
+   * points — the toolbar, ⇧⌘D and the command palette — because they all land on this function.
+   */
   deploy: async (job, create = false) => {
+    const st = useApp.getState().state
+    const where = `${st?.profile ?? 'the current profile'}${st?.region ? ` · ${st.region}` : ''}`
+    const ok = await confirm({
+      title: create ? `Create ${job} in AWS?` : `Deploy ${job} to AWS?`,
+      confirmLabel: create ? 'Create the job' : 'Deploy',
+      body: create
+        ? `This creates a new Glue job named "${job}" in ${where}, and uploads its script to S3. Nothing in AWS is overwritten.`
+        : `This overwrites the job definition of "${job}" in ${where} — its DAG, its settings and the script at its ScriptLocation. The run history is untouched, and the previous definition is not kept by Glue.`,
+    })
+    if (!ok) return ''
     patch(set, job, { busy: 'deploying', message: undefined })
     // Deploy settles + verifies the script against Glue's own regeneration: ~110 s, well past the default ceiling.
     const id = useOps.getState().start(`Deploying ${job}`)

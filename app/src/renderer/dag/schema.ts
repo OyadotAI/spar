@@ -1,6 +1,7 @@
 /** The node types Keel generates code for, and how the inspector edits each. Keys match the daemon's codegen. */
-export type Kind = 'string' | 'int' | 'number' | 'bool' | 'enum' | 'stringList' | 'pathList' | 'columnPick' | 'mappingTable' | 'filterExprs' | 'joinCols' | 'nullChecks' | 'sql' | 'code' | 'json' | 'dqRuleset'
-export type Field = { key: string; label: string; kind: Kind; options?: string[]; help?: string }
+export type Kind = 'string' | 'int' | 'number' | 'bool' | 'enum' | 'stringList' | 'pathList' | 'columnPick' | 'mappingTable' | 'filterExprs' | 'joinCols' | 'nullChecks' | 'sql' | 'code' | 'json' | 'dqRuleset' | 'aggs' | 'sqlAliases' | 'renamePair' | 'nodePick' | 'entityPick' | 'routeGroups'
+/** `alsoWrites` names the other body keys an editor owns — `renamePair` writes SourcePath and TargetPath together. */
+export type Field = { key: string; label: string; kind: Kind; options?: string[]; help?: string; alsoWrites?: string[] }
 export type Category = 'source' | 'transform' | 'target'
 
 const S = (key: string, label: string): Field => ({ key, label, kind: 'string' })
@@ -19,24 +20,25 @@ export const SCHEMA: Record<string, Field[]> = {
   ApplyMapping: [{ key: 'Mapping', label: 'Mappings', kind: 'mappingTable' }],
   SelectFields: [{ key: 'Paths', label: 'Fields to keep', kind: 'columnPick' }],
   DropFields: [{ key: 'Paths', label: 'Fields to drop', kind: 'columnPick' }],
-  RenameField: [{ key: 'SourcePath', label: 'From column', kind: 'stringList' }, { key: 'TargetPath', label: 'To column', kind: 'stringList' }],
+  // one editor writes both keys: two parallel lists that had to stay index-aligned by hand
+  RenameField: [{ key: 'SourcePath', label: 'Rename', kind: 'renamePair', alsoWrites: ['TargetPath'] }],
   Filter: [E('LogicalOperator', 'Combine with', ['AND', 'OR']), { key: 'Filters', label: 'Conditions', kind: 'filterExprs' }],
   Join: [E('JoinType', 'Join type', ['equijoin', 'left', 'right', 'outer', 'leftsemi', 'leftanti']), { key: 'Columns', label: 'Join keys', kind: 'joinCols' }],
   DropDuplicates: [P('Columns', 'Columns (empty = all)')],
   DropNullFields: [{ key: 'NullCheckBoxList', label: 'Treat as null', kind: 'nullChecks' }, J('NullTextList', 'Custom null values [{Value, Datatype:{Id,Label}}]')],
-  Aggregate: [P('Groups', 'Group by'), J('Aggs', 'Aggregations [{Column:[..], AggFunc}]')],
-  SparkSQL: [{ key: 'SqlQuery', label: 'SQL', kind: 'sql' }, J('SqlAliases', 'Aliases [{From, Alias}]')],
+  Aggregate: [{ key: 'Groups', label: 'Group by', kind: 'columnPick' }, { key: 'Aggs', label: 'Aggregations', kind: 'aggs' }],
+  SparkSQL: [{ key: 'SqlAliases', label: 'Table names for the inputs', kind: 'sqlAliases' }, { key: 'SqlQuery', label: 'SQL', kind: 'sql' }],
   CustomCode: [S('ClassName', 'Class name'), { key: 'Code', label: 'Python', kind: 'code' }],
   Union: [E('UnionType', 'Union type', ['ALL', 'DISTINCT'])],
   SplitFields: [{ key: 'Paths', label: 'Fields for the first frame', kind: 'columnPick' }],
   SelectFromCollection: [{ key: 'Index', label: 'Frame index', kind: 'int' }],
   FillMissingValues: [{ key: 'ImputedPath', label: 'Data field', kind: 'string' }, S('FilledPath', 'New field name')],
   Spigot: [S('Path', 'S3 path for the sample'), { key: 'Topk', label: 'Number of records (0–100)', kind: 'int' }, { key: 'Prob', label: 'Probability threshold (0–1)', kind: 'number' }],
-  Merge: [S('Source', 'Source node id'), J('PrimaryKeys', 'Primary keys [[col]]')],
+  Merge: [{ key: 'Source', label: 'Source frame', kind: 'nodePick' }, { key: 'PrimaryKeys', label: 'Primary keys', kind: 'columnPick' }],
   EvaluateDataQuality: [{ key: 'Ruleset', label: 'DQDL ruleset', kind: 'dqRuleset' }, J('PublishingOptions', 'Publishing {EvaluationContext, ResultsS3Prefix, CloudWatchMetricsEnabled, ResultsPublishingEnabled}'), J('StopJobOnFailureOptions', 'On failure {StopJobOnFailureTiming: Immediate|AfterDataLoad}')],
   EvaluateDataQualityMultiFrame: [{ key: 'Ruleset', label: 'DQDL ruleset', kind: 'dqRuleset' }, J('AdditionalDataSources', 'Aliases {alias: nodeId}'), J('PublishingOptions', 'Publishing options'), J('StopJobOnFailureOptions', 'On failure')],
-  Route: [J('GroupFiltersList', 'Groups [{GroupName, LogicalOperator, Filters:[…]}]')],
-  PIIDetection: [E('PiiType', 'Action', ['RowAudit', 'RowMasking', 'RowPartialMasking', 'RowHashing', 'ColumnAudit', 'ColumnMasking', 'ColumnHashing']), L('EntityTypesToDetect', 'Entity types'), S('OutputColumnName', 'Output column'), { key: 'SampleFraction', label: 'Sample portion (0–1)', kind: 'number' }, { key: 'ThresholdFraction', label: 'Detection threshold (0–1)', kind: 'number' }, S('MaskValue', 'Mask value'), E('DetectionSensitivity', 'Sensitivity', ['', 'HIGH', 'LOW'])],
+  Route: [{ key: 'GroupFiltersList', label: 'Output groups', kind: 'routeGroups' }],
+  PIIDetection: [E('PiiType', 'Action', ['RowAudit', 'RowMasking', 'RowPartialMasking', 'RowHashing', 'ColumnAudit', 'ColumnMasking', 'ColumnHashing']), { key: 'EntityTypesToDetect', label: 'Entity types', kind: 'entityPick' }, S('OutputColumnName', 'Output column'), { key: 'SampleFraction', label: 'Sample portion (0–1)', kind: 'number' }, { key: 'ThresholdFraction', label: 'Detection threshold (0–1)', kind: 'number' }, S('MaskValue', 'Mask value'), E('DetectionSensitivity', 'Sensitivity', ['', 'HIGH', 'LOW'])],
   S3DirectTarget: [S('Path', 'S3 path'), E('Format', 'Format', ['json', 'csv', 'avro', 'orc', 'parquet']), E('Compression', 'Compression', ['', 'gzip', 'snappy', 'bzip2']), P('PartitionKeys', 'Partition keys')],
   S3GlueParquetTarget: [S('Path', 'S3 path'), E('Compression', 'Compression', ['snappy', 'gzip', 'lzo', 'uncompressed']), P('PartitionKeys', 'Partition keys')],
   S3CatalogTarget: [S('Database', 'Database'), S('Table', 'Table'), P('PartitionKeys', 'Partition keys')],
@@ -55,6 +57,17 @@ export function category(type: string): Category {
 }
 export function fields(type: string): Field[] | undefined { return SCHEMA[type] }
 export function supported(type: string): boolean { return type in SCHEMA }
+
+/**
+ * Whether Glue's API declares `OutputSchemas` on this node type.
+ *
+ * Sources do; among transforms only the four that emit an arbitrary shape. Keel records a schema on
+ * any node because that is what feeds the column pickers downstream, and the daemon strips the ones
+ * Glue will not take before it deploys (see Project.dagForGlue) — CreateJob rejects the whole job
+ * otherwise. Mirrors that rule so the inspector can say which case a node is in.
+ */
+export const carriesSchema = (type: string): boolean =>
+  type.endsWith('Source') || ['CustomCode', 'SparkSQL', 'DynamicTransform', 'Recipe'].includes(type)
 export function maxInputs(type: string): number {
   if (category(type) === 'source') return 0
   if (type === 'Join') return 2

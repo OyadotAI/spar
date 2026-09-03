@@ -140,6 +140,22 @@ public class Sync implements StateController.StateContributor {
         });
     }
 
+    /**
+     * Forget the listing: a different profile or region means what we hold belongs somewhere else.
+     *
+     * {@link #ready()} also notices a changed key, but only on the next five-second tick, and it
+     * announces the change only when job *names* differ — so switching to a region with no jobs
+     * told the app nothing and it went on showing the previous region's list. The switch itself
+     * calls this, so the next `GET /api/glue/jobs` cannot answer from the old region's cache.
+     */
+    public void reset() {
+        known.clear();
+        due.clear();
+        cache.clear();
+        profileKey = null;              // the next sweep records the new key without clearing twice
+        firstPass = new CountDownLatch(1);
+    }
+
     private boolean ready() {
         String p = state.profile();
         if (p == null || p.isBlank()) return false;

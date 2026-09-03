@@ -16,6 +16,8 @@ const keel = {
     ipcRenderer.on('keel:menu', h)
     return () => ipcRenderer.removeListener('keel:menu', h)
   },
+  /** tells the main process whether a DAG canvas is on screen, so the Canvas menu can grey out */
+  setCanvasOpen: (on: boolean): void => ipcRenderer.send('keel:canvas', on),
   openExternal: (url: string): Promise<void> => ipcRenderer.invoke('keel:openExternal', url),
   pickProject: (): Promise<string | null> => ipcRenderer.invoke('keel:pickProject'),
   checkProject: (dir: string): Promise<{ ok: boolean; why?: string; hint?: string; empty?: boolean; git?: boolean; keel?: boolean }> => ipcRenderer.invoke('keel:checkProject', dir),

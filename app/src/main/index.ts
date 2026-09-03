@@ -1,7 +1,8 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
+import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { Daemon } from './daemon'
-import { installMenu } from './menu'
+import { installMenu, setCanvasEnabled } from './menu'
 
 // KEEL_USERDATA=<dir>: a separate profile (remembered tabs, project) for screenshots and tests.
 if (process.env.KEEL_USERDATA) app.setPath('userData', process.env.KEEL_USERDATA)
@@ -68,12 +69,29 @@ async function check(dir: string): Promise<ProjectCheck> {
     hint: 'Keel will add jobs/ and .keel/ and, if there is no repository yet, run git init here. Fine for an existing repo; pick an empty folder otherwise.', git, keel }
 }
 
+/**
+ * The app icon. Packaged builds get it from electron-builder (build/icon.icns | .ico | .png), but
+ * a dev run shows Electron's own logo unless we hand it over ourselves.
+ */
+function devIcon(): string | undefined {
+  const png = join(__dirname, '../../build/icon.png')
+  return app.isPackaged || !existsSync(png) ? undefined : png
+}
+
 function createWindow(): void {
+  const icon = devIcon()
+  if (icon && process.platform === 'darwin') app.dock?.setIcon(icon)
   win = new BrowserWindow({
-    width: 1400, height: 900, minWidth: 960, minHeight: 600,
+    // KEEL_SIZE=<w>x<h> sizes the window for the screenshot rig, so a layout can be checked at
+    // the narrow end without dragging the corner by hand.
+    width: Number(process.env.KEEL_SIZE?.split('x')[0]) || 1400,
+    height: Number(process.env.KEEL_SIZE?.split('x')[1]) || 900,
+    minWidth: 960, minHeight: 600,
     title: 'Keel',
     titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
-    backgroundColor: '#111214',
+    ...(icon ? { icon } : {}),
+    // matches theme.css's --bg, so the window does not flash the wrong colour before the first paint
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#0F1013' : '#FCFCFD',
     webPreferences: { preload: join(__dirname, '../preload/index.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
   })
   win.on('closed', () => { win = null })
@@ -108,6 +126,7 @@ app.whenReady().then(async () => {
   app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow() })
 })
 
+ipcMain.on('keel:canvas', (_e, on: boolean) => setCanvasEnabled(on))
 ipcMain.handle('keel:port', () => ({ port: daemon?.port ?? 0, project: daemon?.projectDir ?? '' }))
 ipcMain.handle('keel:recentProjects', async () => {
   try {

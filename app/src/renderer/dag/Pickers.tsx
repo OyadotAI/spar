@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '@/api/client'
 import { Icon } from '@/shell/Icon'
-import { useEscape } from '@/shell/useEscape'
+import { Sheet } from '@/shell/Sheet'
 
 type Entry = { name: string; uri: string; dir: boolean; size?: number; modified?: string }
 
@@ -14,14 +14,13 @@ export function S3Browser({ initial, onPick, onClose }: { initial?: string; onPi
     setEntries(null); setErr(null)
     void api.get<{ entries: Entry[]; uri: string }>(`/api/s3/ls?uri=${encodeURIComponent(uri)}`, 'S3').then((r) => { if (r.ok) setEntries(r.value.entries); else setErr(r.fault.why) })
   }, [uri])
-  useEscape(true, onClose)
   const up = () => { if (uri === 's3://') return; const parts = uri.replace(/\/$/, '').split('/'); parts.pop(); const u = parts.join('/') + '/'; setUri(u === 's3:/' + '/' ? 's3://' : u.replace(/^s3:\/\/$/, 's3://')) }
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" style={{ width: 680 }} onClick={(e) => e.stopPropagation()}>
+    <Sheet label="Browse S3" width={680} onClose={onClose} dirty={uri !== 's3://'}>
+      <div>
         <div className="row" style={{ marginBottom: 10 }}>
           <button className="quiet" onClick={up} disabled={uri === 's3://'}><Icon name="chevron" style={{ transform: 'rotate(180deg)' }} />Up</button>
-          <input className="mono fill" value={uri} onChange={(e) => setUri(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') setUri((e.target as HTMLInputElement).value) }} />
+          <input className="mono fill" aria-label="S3 path" value={uri} onChange={(e) => setUri(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') setUri((e.target as HTMLInputElement).value) }} />
           <button className="primary" onClick={() => onPick(uri)} disabled={uri === 's3://'}>Use this prefix</button>
         </div>
         <div style={{ height: 360, overflow: 'auto', border: '1px solid var(--line)', borderRadius: 'var(--r)' }}>
@@ -38,7 +37,7 @@ export function S3Browser({ initial, onPick, onClose }: { initial?: string; onPi
         </div>
         <div className="row" style={{ marginTop: 10 }}><span className="faint small">Double-click a folder to open it; single-click a file to use it.</span><span className="fill" /><button onClick={onClose}>Cancel</button></div>
       </div>
-    </div>
+    </Sheet>
   )
 }
 

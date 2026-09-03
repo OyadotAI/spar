@@ -13,13 +13,19 @@ import { Palette, usePalette } from '@/shell/Palette'
 import { OpsTray } from '@/shell/Ops'
 import { useEngine } from '@/stores/engine'
 import { JobPage } from '@/pages/JobPage'
-import { SettingsPage } from '@/pages/Settings'
 import { useTerminal } from '@/stores/terminal'
 import { useLanes, activeLane } from '@/stores/lanes'
 import { useJob } from '@/stores/job'
 import { useGlue } from '@/stores/glue'
 import { isRunning } from '@/shell/format'
 import { Icon } from '@/shell/Icon'
+
+/** ⌘F and Edit ▸ Find both land here. The box marks itself with `data-search`; matching on
+ *  placeholder text meant renaming a placeholder silently broke the shortcut. */
+function focusSearch(): void {
+  const box = document.querySelector<HTMLInputElement>('[data-search]')
+  if (box) { box.focus(); box.select() }
+}
 
 export function App() {
   const { setPort, daemonDied, refreshState, showSettings, toggle, setConnection } = useApp()
@@ -37,7 +43,7 @@ export function App() {
       if (s.project && s.project !== prev.project) {
         useLanes.getState().loadFor(s.project)
         const open = window.keel.openOnLaunch
-        if (open) { const [job, tab, node] = open.split(':'); if (job === 'home') useLanes.getState().select('home'); else if (job) { useLanes.getState().openJob(job); if (tab) useLanes.getState().setTab(job, tab as 'console'); if (node) setTimeout(() => void import('@/dag/store').then((m) => m.useDag.getState().select(job, [node])), 4000) } }
+        if (open) { const [job, tab, node] = open.split(':'); if (job === 'home') { if (tab) try { localStorage.setItem('home.section', tab) } catch { /* ignore */ } ; useLanes.getState().select('home') } else if (job) { useLanes.getState().openJob(job); if (tab) useLanes.getState().setTab(job, tab as 'console'); if (node) setTimeout(() => void import('@/dag/store').then((m) => m.useDag.getState().select(job, [node])), 4000) } }
       }
     })
     const off = window.keel.onDaemon((s) => {
@@ -47,6 +53,7 @@ export function App() {
     const offMenu = window.keel.onMenu((cmd) => {
       const l = activeLane(useLanes.getState())
       if (cmd === 'palette') usePalette.getState().toggle()
+      else if (cmd === 'find') focusSearch()
       else if (cmd === 'close-tab') { const a = useLanes.getState(); if (a.active !== 'home') a.close(a.active) }
       else if (cmd === 'settings') toggle('showSettings')
       else if (cmd === 'terminal') useTerminal.getState().toggle()
@@ -63,9 +70,6 @@ export function App() {
         const tabs = ['home', ...l.open.map((x) => x.id)]
         const t = tabs[Number(e.key) - 1]
         if (t) { e.preventDefault(); l.select(t) }
-      } else if (e.key === 'f') {
-        const box = document.querySelector<HTMLInputElement>('input[placeholder^="Search"], input[placeholder^="Find"], input[placeholder="filter"]')
-        if (box) { e.preventDefault(); box.focus(); box.select() }
       }
     }
     window.addEventListener('keydown', onKey)
@@ -75,12 +79,12 @@ export function App() {
   const tabs = [{ id: 'home', title: 'Jobs' }, ...lanes.open.map((l) => ({ id: l.id, title: l.title, busy: busyJobs.has(l.id), tone: tones.get(l.id) }))]
   return (
     <div className="app">
-      {hasProject && <LaneTabs tabs={tabs} active={showSettings ? '' : lanes.active} onSelect={(id) => { toggle('showSettings', false); lanes.select(id) }} onClose={lanes.close} />}
+      {hasProject && <LaneTabs tabs={tabs} active={showSettings ? 'home' : lanes.active}
+        onSelect={(id) => { toggle('showSettings', false); lanes.select(id) }} onClose={lanes.close} />}
       {!hasProject && <div className="tabs"><div className="brand"><Icon name="keel" size={16} /><span>Keel</span></div></div>}
       <div className="fill" style={{ minHeight: 0 }}>
         {!hasProject ? <Welcome onOpened={() => { setConnection('starting'); void refreshState() }} />
-          : showSettings ? <SettingsPage />
-          : lane ? <JobPage key={lane.id} lane={lane} />
+          : lane && !showSettings ? <JobPage key={lane.id} lane={lane} />
           : <Home onOpen={(job, run) => { lanes.openJob(job); if (run) setTimeout(() => void import('@/stores/job').then((m) => m.useJob.getState().select(job, run)), 800) }} />}
       </div>
       <div style={{ height: term.open ? 280 : 0, borderTop: term.open ? '1px solid var(--line)' : 'none', overflow: 'hidden', background: 'var(--well)' }}>

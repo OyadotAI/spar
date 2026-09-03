@@ -38,7 +38,7 @@ export function Toasts() {
   }, [notes, dismiss])
   if (!notes.length) return null
   return (
-    <div className="toasts">
+    <div className="toasts" role="status" aria-live="polite">
       {notes.map((n) => (
         <div key={n.id} className={'toast ' + n.kind}>
           <Icon name={n.kind === 'ok' ? 'ok' : n.kind === 'bad' ? 'bad' : 'info'} size={15} />
@@ -47,7 +47,7 @@ export function Toasts() {
             {n.detail && <div className="d">{n.detail}</div>}
           </div>
           {n.action && <button className="quiet" onClick={() => { n.action!.run(); dismiss(n.id) }}>{n.action.label}</button>}
-          <button className="quiet" onClick={() => dismiss(n.id)}><Icon name="x" size={12} /></button>
+          <button className="quiet" aria-label="Dismiss" onClick={() => dismiss(n.id)}><Icon name="x" size={12} /></button>
         </div>))}
     </div>
   )

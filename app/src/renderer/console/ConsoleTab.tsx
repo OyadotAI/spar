@@ -4,6 +4,7 @@ import { useJob } from '@/stores/job'
 import { SplitPane } from '@/shell/SplitPane'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
 import { Icon } from '@/shell/Icon'
+import { Seg } from '@/shell/Seg'
 import { ago, duration, isRunning, stateTone, when } from '@/shell/format'
 import type { GlueRun } from '@/wire/types'
 import { RunLinks } from './RunLinks'
@@ -20,7 +21,7 @@ export function ConsoleTab({ job }: { job: string }) {
   if (st.runs.length === 0) return <EmptyState title="This job has never run">Start one with Run, or from the console — it shows up here on its own.</EmptyState>
   const run = st.runs.find((r) => r.id === st.selectedRun)
   return (
-    <SplitPane vertical storageKey="console.runs" initial={200} min={100} minB={220}
+    <SplitPane vertical storageKey="console.runs" initial={0.3} min={110} minB={220}
       a={<RunsList runs={st.runs} selected={st.selectedRun} onSelect={(id) => select(job, id)} />}
       b={run ? <RunPane job={job} run={run} /> : <EmptyState title="Pick a run" />} />
   )
@@ -58,9 +59,9 @@ function RunPane({ job, run }: { job: string; run: GlueRun }) {
   const [pane, setPane] = useState<'logs' | 'metrics' | 'insights' | 'spark'>('logs')
   const body = (
     <div className="col" style={{ height: '100%' }}>
-      <div className="row subtabs" style={{ height: 30, padding: '0 12px', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', background: 'var(--surface)', flex: 'none' }}>
-        {([['logs', 'Logs'], ['metrics', 'Metrics'], ['insights', 'Insights'], ['spark', 'Spark UI']] as const).map(([k, l]) => (
-          <button key={k} className={'tabbtn' + (pane === k ? ' on' : '')} onClick={() => setPane(k)}>{l}</button>))}
+      <div className="seg-bar" style={{ borderTop: '1px solid var(--line)' }}>
+        <Seg label="Run detail" value={pane} onChange={setPane}
+          options={[['logs', 'Logs'], ['metrics', 'Metrics'], ['insights', 'Insights'], ['spark', 'Spark UI']] as const} />
       </div>
       <div className="fill" style={{ minHeight: 0 }}>
         {pane === 'logs' ? <LogConsole job={job} />
@@ -69,7 +70,7 @@ function RunPane({ job, run }: { job: string; run: GlueRun }) {
           : <SparkUiPane job={job} run={run.id} />}
       </div>
     </div>)
-  return <SplitPane vertical storageKey="console.detail" initial={run.errorMessage ? 190 : 118} min={70} minB={200} a={<RunDetail job={job} run={run} />} b={body} />
+  return <SplitPane vertical storageKey="console.detail" initial={run.errorMessage ? 0.32 : 0.2} min={80} minB={200} a={<RunDetail job={job} run={run} />} b={body} />
 }
 
 function Fact({ k, v, tone }: { k: string; v: React.ReactNode; tone?: string }) {
@@ -123,7 +124,7 @@ export function LogConsole({ job }: { job: string }) {
         <select value={st.group} onChange={(e) => setGroup(job, e.target.value as typeof st.group)}>
           <option value="all">all streams</option><option value="output">output (stdout/stderr)</option><option value="error">error (driver, Spark)</option>
         </select>
-        <input placeholder="filter" value={st.search} onChange={(e) => setSearch(job, e.target.value)} style={{ width: 180 }} />
+        <input placeholder="filter" data-search aria-label="Filter log lines" value={st.search} onChange={(e) => setSearch(job, e.target.value)} style={{ width: 180 }} />
         <button className={'quiet' + (st.follow ? ' on' : '')} onClick={() => setFollow(job, !st.follow)} title="Follow the tail">{st.follow ? 'following' : 'follow'}</button>
         <button className="quiet" onClick={() => clearLines(job)}>clear</button>
         <LogWhereNote job={job} />

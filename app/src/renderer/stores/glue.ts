@@ -8,16 +8,30 @@ export type Auth = { kind: 'ok' } | { kind: 'noProfile' } | { kind: 'expired'; f
 export type LocalJob = { name: string; imported: boolean; hasDag: boolean; hasScript: boolean; hasTests: boolean; lane: { exists: boolean; branch?: string; dirty?: number } }
 type GlueStore = {
   jobs: GlueJob[]; local: LocalJob[]; loaded: boolean; failure?: Fault; auth: Auth; query: string; refreshedAt?: string; stale?: boolean; offline?: string | null
+  /** the `profile@region` this listing belongs to; null until the first state arrives */
+  account: string | null
   refreshLocal: () => Promise<void>
   createLocal: (name: string) => Promise<Fault | null>
   refresh: () => Promise<void>
   setQuery: (q: string) => void
   patchRun: (job: string, run: GlueRun | null) => void
   markRemote: (job: string) => void
+  /** The daemon says the profile or region changed; drop anything that belonged to the old one. */
+  accountChanged: (profile?: string | null, region?: string | null) => void
 }
 
+/** `profile@region`. Everything in this store is scoped to one of these. */
+export const accountKey = (profile?: string | null, region?: string | null): string => `${profile ?? ''}@${region ?? ''}`
+
+/**
+ * The account a screen's data belongs to. Put it in the dependencies of any effect that reads from
+ * AWS — connections, sessions, schedules, run history — and switching profile or region re-reads it
+ * instead of leaving the previous account's answer on screen.
+ */
+export const useAccount = (): string | null => useGlue((s) => s.account)
+
 export const useGlue = create<GlueStore>((set, get) => ({
-  jobs: [], local: [], loaded: false, auth: { kind: 'noProfile' }, query: '',
+  jobs: [], local: [], loaded: false, auth: { kind: 'noProfile' }, query: '', account: null,
   refreshLocal: async () => { const r = await api.get<LocalJob[]>('/api/jobs', 'the local jobs'); if (r.ok) set({ local: r.value }) },
   createLocal: async (name) => {
     const r = await api.post(`/api/jobs/${encodeURIComponent(name)}/lane`, {}, `creating ${name}`)
@@ -37,10 +51,23 @@ export const useGlue = create<GlueStore>((set, get) => ({
   setQuery: (query) => set({ query }),
   patchRun: (job, run) => set({ jobs: get().jobs.map((j) => (j.name === job ? { ...j, latestRun: run } : j)) }),
   markRemote: (job) => set({ jobs: get().jobs.map((j) => (j.name === job && j.local?.imported ? { ...j, local: { ...j.local, remoteChanged: true } } : j)) }),
+  accountChanged: (profile, region) => {
+    const key = accountKey(profile, region)
+    const was = get().account
+    // the first sighting is not a change; a real one means these jobs are from somewhere else
+    if (was === null || was === key) { set({ account: key }); return }
+    set({ account: key, jobs: [], loaded: false, failure: undefined, refreshedAt: undefined, stale: false, offline: null })
+  },
 }))
 
 onEvent((kind, data) => {
   const s = useGlue.getState()
+  if (kind === 'state.changed') {
+    // switching region used to leave the previous region's jobs on screen: the daemon only
+    // announced a change when job *names* differed, so moving to an empty region announced nothing
+    const d = data as { profile?: string; region?: string }
+    s.accountChanged(d.profile, d.region)
+  }
   if (kind === 'connected' || kind === 'jobs.changed' || kind === 'state.changed') { void s.refresh(); void s.refreshLocal() }
   else if (kind === 'git.changed') void s.refreshLocal()
   else if (kind === 'run.changed') { const d = data as { job: string; run: GlueRun | Record<string, never> }; s.patchRun(d.job, d.run && 'id' in d.run ? (d.run as GlueRun) : null) }

@@ -44,8 +44,8 @@ export function Welcome({ onOpened }: { onOpened: () => void }) {
   return (
     <div className="welcome">
       <div className="welcome-inner">
-        <div className="row" style={{ gap: 10, marginBottom: 6 }}><Icon name="keel" size={28} /><h1 style={{ fontSize: 28 }}>Keel</h1></div>
-        <p className="dim" style={{ fontSize: 15, marginTop: 0, maxWidth: '56ch' }}>
+        <div className="row" style={{ gap: 10, marginBottom: 6 }}><Icon name="keel" size={28} /><h1 style={{ fontSize: 'var(--display)' }}>Keel</h1></div>
+        <p className="dim" style={{ fontSize: 'var(--reading)', marginTop: 0, maxWidth: '56ch' }}>
           A local-first workbench for AWS Glue. Your jobs live in a folder on this machine, as a DAG, generated PySpark
           and tests you can run without touching AWS. Connect an account when you want to import, deploy or watch runs.
         </p>

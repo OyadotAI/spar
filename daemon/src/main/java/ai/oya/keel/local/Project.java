@@ -179,6 +179,39 @@ public class Project {
     // ---- validation ------------------------------------------------------------------------------
 
     /** The invariants Glue itself enforces at deploy time, checked here so the canvas never holds a DAG Glue would refuse. */
+    /**
+     * Node types whose bodies declare `OutputSchemas` in the Glue API.
+     *
+     * Sources all do — the schema is what they produce. Among transforms only the four that emit an
+     * arbitrary shape do; everything else derives its schema from its input, and Glue rejects the
+     * field outright: "Unknown parameter in CodeGenConfigurationNodes.n-paid.Filter: OutputSchemas".
+     */
+    private static final java.util.Set<String> SCHEMA_TRANSFORMS =
+            java.util.Set.of("CustomCode", "SparkSQL", "DynamicTransform", "Recipe");
+
+    static boolean acceptsOutputSchemas(String type) {
+        return type.endsWith("Source") || SCHEMA_TRANSFORMS.contains(type);
+    }
+
+    /**
+     * The DAG as Glue will accept it.
+     *
+     * Keel records `OutputSchemas` on any node it can infer one for, because that is what feeds the
+     * column pickers downstream in the inspector — but CreateJob refuses it on a Filter or a Join.
+     * dag.json keeps it; the deploy payload does not. Stripping is the safe direction: a schema Glue
+     * would have accepted is only metadata, while one it will not accept fails the whole deploy.
+     */
+    public static ObjectNode dagForGlue(JsonNode dag) {
+        ObjectNode out = ((ObjectNode) dag).deepCopy();
+        for (Iterator<Map.Entry<String, JsonNode>> it = out.fields(); it.hasNext();) {
+            JsonNode node = it.next().getValue();
+            if (!node.isObject() || node.size() != 1) continue;
+            String type = node.fieldNames().next();
+            if (!acceptsOutputSchemas(type) && node.get(type).isObject()) ((ObjectNode) node.get(type)).remove("OutputSchemas");
+        }
+        return out;
+    }
+
     public static void validateDag(JsonNode dag) {
         if (dag == null || !dag.isObject()) throw ApiError.badRequest("dag.json must be an object of nodeId → node");
         for (Iterator<Map.Entry<String, JsonNode>> it = dag.fields(); it.hasNext();) {

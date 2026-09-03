@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useToast } from '@/shell/Toast'
 import { api } from '@/api/client'
 import { useApp } from '@/stores/app'
+import { confirm } from '@/shell/Confirm'
 import { useTerminal } from '@/stores/terminal'
 import { ProfilePicker } from '@/pages/ProfilePicker'
 import { AwsAccess } from '@/pages/AwsAccess'
@@ -36,7 +37,7 @@ export function SettingsPage() {
       </div>
 
       <section className="card">
-        <h3>AWS</h3>
+        <h2>AWS</h2>
         <div className="row"><ProfilePicker />
           {state?.profile && <button onClick={() => openTerminal(`aws sso login --profile ${state.profile}`)}>Sign in (SSO)</button>}
         </div>
@@ -48,7 +49,7 @@ export function SettingsPage() {
       <AwsAccess />
 
       <section className="card">
-        <h3>Add an IAM Identity Center (SSO) profile</h3>
+        <h2>Add an IAM Identity Center (SSO) profile</h2>
         <div className="form">
           <label>Start URL <input value={sso.startUrl} onChange={(e) => setSso({ ...sso, startUrl: e.target.value })} placeholder="https://d-xxxx.awsapps.com/start" /></label>
           <label>Identity Center region <input value={sso.ssoRegion} onChange={(e) => setSso({ ...sso, ssoRegion: e.target.value })} /></label>
@@ -61,14 +62,14 @@ export function SettingsPage() {
       </section>
 
       <section className="card">
-        <h3>Live updates</h3>
+        <h2>Live updates</h2>
         <LiveCard />
       </section>
 
       <section className="card">
-        <h3>Tools</h3>
+        <h2>Tools</h2>
         <ul className="dim" style={{ margin: 0, paddingLeft: 18 }}>
-          {state && Object.entries(state.tools).map(([k, t]) => <li key={k}><code>{k}</code> {t.installed ? t.version : <span style={{ color: 'var(--err)' }}>not found on PATH</span>}</li>)}
+          {state && Object.entries(state.tools).map(([k, t]) => <li key={k}><code>{k}</code> {t.installed ? t.version : <span style={{ color: 'var(--del)' }}>not found on PATH</span>}</li>)}
         </ul>
       </section>
     </div>
@@ -81,6 +82,13 @@ function LiveCard() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const flip = async (enable: boolean) => {
+    if (!await confirm({
+      title: enable ? 'Create the push infrastructure?' : 'Remove the push infrastructure?',
+      confirmLabel: enable ? 'Enable live updates' : 'Disable',
+      body: enable
+        ? 'This creates one SQS queue and two EventBridge rules in this region of your account. Disabling removes them again. Keel keeps polling either way.'
+        : 'This deletes the SQS queue and the two EventBridge rules Keel created. Run state falls back to polling.',
+    })) return
     setBusy(true); setErr(null)
     const r = await api.post<unknown>(enable ? '/api/live/enable' : '/api/live/disable', {}, 'live updates')
     if (!r.ok) setErr(r.fault.why + (r.fault.fix ? ` — ${r.fault.fix}` : ''))
@@ -96,7 +104,7 @@ function LiveCard() {
         <span className={'pill ' + (p?.enabled ? 'ok' : '')}>{p?.enabled ? 'push enabled' : 'polling only'}</span>
         {p?.enabled ? <button disabled={busy} onClick={() => void flip(false)}>Disable</button> : <button className="primary" disabled={busy} onClick={() => void flip(true)}>Enable live updates</button>}
         {p?.error && <span style={{ color: 'var(--warn)' }}>{p.error}</span>}
-        {err && <span style={{ color: 'var(--err)' }}>{err}</span>}
+        {err && <span style={{ color: 'var(--del)' }}>{err}</span>}
       </div>
       <details style={{ marginTop: 8 }}><summary className="dim">IAM actions needed</summary>
         <code style={{ display: 'block', whiteSpace: 'pre-wrap', marginTop: 4 }}>{'sqs:CreateQueue GetQueueAttributes SetQueueAttributes ReceiveMessage DeleteMessage DeleteQueue\nevents:PutRule PutTargets RemoveTargets DeleteRule DescribeRule\nsts:GetCallerIdentity   (optional) cloudtrail:DescribeTrails'}</code></details>

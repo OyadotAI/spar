@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { useGlue } from './glue'
 import { useToast } from '@/shell/Toast'
 import { api, type Fault } from '@/api/client'
 import { subscribe, type Sse } from '@/api/sse'
@@ -121,6 +122,16 @@ onEvent((kind, data) => {
   } else if (kind === 'connected') {
     for (const l of useLanes.getState().open) void st.refreshRuns(l.id)
   }
+})
+
+/**
+ * Runs, logs and the selected run belong to one account. Switching profile or region makes every
+ * run id in here meaningless, so drop them rather than let a stale run pane sit under a new region.
+ */
+useGlue.subscribe((s, prev) => {
+  if (s.account === prev.account || prev.account === null) return
+  for (const j of Object.keys(useJob.getState().jobs)) closeLogs(j)
+  useJob.setState({ jobs: {} })
 })
 
 function notify(job: string, run: GlueRun): void {

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useAccount } from '@/stores/glue'
 import { api, type Fault } from '@/api/client'
 import { Icon } from '@/shell/Icon'
 import { confirm } from '@/shell/Confirm'
 import { tell } from '@/shell/Toast'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
+import { useSurfaceReason } from '@/shell/useSurfaceReason'
 import { when } from '@/shell/format'
 
 type Profile = { name: string; description?: string; createdOn?: string; job?: Record<string, Param>; session?: Record<string, Param> }
@@ -13,6 +15,7 @@ const SESSION_KEYS = ['GlueVersion', 'WorkerType', 'NumberOfWorkers', 'IdleTimeo
 
 /** Usage profiles: the account's capacity guardrails, and what a job's ProfileName points at. */
 export function Profiles() {
+  const account = useAccount()
   const [list, setList] = useState<Profile[] | null>(null)
   const [fault, setFault] = useState<Fault | null>(null)
   const [sel, setSel] = useState<string | null>(null)
@@ -20,8 +23,11 @@ export function Profiles() {
   const [draft, setDraft] = useState<Profile | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
   const load = async () => { const r = await api.get<Profile[]>('/api/glue/profiles', 'the usage profiles'); if (r.ok) { setList(r.value); setFault(null) } else setFault(r.fault) }
-  useEffect(() => { void load() }, [])
+  useEffect(() => { void load() }, [account]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (sel) void api.get<Profile>(`/api/glue/profiles/${encodeURIComponent(sel)}`, 'the profile').then((r) => { if (r.ok) setCur(r.value) }) }, [sel])
+  // the pane says which reason it is before it says it could not read anything
+  const reason = useSurfaceReason('usage profiles')
+  if (reason) return reason
   if (fault) return <FaultState fault={fault} retry={() => void load()} />
   if (!list) return <EmptyState title="Reading usage profiles…" />
   const save = async () => {
@@ -96,7 +102,7 @@ function ParamTable({ title, keys, value, onChange }: { title: string; keys: str
             <input className="mono" defaultValue={Array.isArray(p.allowed) ? p.allowed.join(',') : ''} onBlur={(e) => onChange({ ...value, [k]: { ...p, allowed: e.target.value ? e.target.value.split(',').map((s) => s.trim()) : undefined } })} />
             <input className="mono" defaultValue={p.min ?? ''} onBlur={(e) => set(k, { min: e.target.value })} />
             <input className="mono" defaultValue={p.max ?? ''} onBlur={(e) => set(k, { max: e.target.value })} />
-            <button className="quiet" onClick={() => { const n = { ...value }; delete n[k]; onChange(n) }}><Icon name="x" size={12} /></button>
+            <button className="quiet" aria-label={`Remove ${k}`} onClick={() => { const n = { ...value }; delete n[k]; onChange(n) }}><Icon name="x" size={12} /></button>
           </div>))}
         <select value="" onChange={(e) => { if (e.target.value) onChange({ ...value, [e.target.value]: {} }) }}>
           <option value="">+ parameter…</option>

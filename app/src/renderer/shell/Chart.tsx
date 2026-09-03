@@ -9,7 +9,31 @@ import { useMemo, useRef, useState } from 'react'
 const dark = () => typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches
 /** Validated with the palette checker: light #1D4ED8,#C2410C,#047857,#A21CAF · dark #4A86E8,#C07F1F,#2BA774,#B96BB4 */
 export const SERIES = () => (dark() ? ['#4A86E8', '#C07F1F', '#2BA774', '#B96BB4'] : ['#1D4ED8', '#C2410C', '#047857', '#A21CAF'])
-export const STATUS: Record<string, string> = { succeeded: 'var(--add)', failed: 'var(--del)', stopped: 'var(--warn)', running: 'var(--accent)' }
+/**
+ * Run outcomes are a *status* palette, and it is not the same thing as the status text tokens.
+ * `--del` and `--warn` are tuned for text contrast on their tinted backgrounds; as adjacent fills
+ * in a stacked bar they were ΔE 1.5 apart under deuteranopia — "failed" and "stopped" were the
+ * same colour. These four are validated in stack order (see scripts/validate_palette.js):
+ *   light #047857,#B91C1C,#2563EB,#B45309  — CVD ΔE 8.4 · dark #12734B,#DC6F67,#5590EC,#AD8024 — 8.2
+ * Both sit in the 6–8+ band, which is legal only with secondary encoding, so every stacked mark
+ * here carries a 2px surface gap and a direct label, and the run table below repeats it as text.
+ */
+export const STATUS_KEYS = ['succeeded', 'failed', 'running', 'stopped'] as const
+const STATUS_LIGHT = ['#047857', '#B91C1C', '#2563EB', '#B45309']
+const STATUS_DARK = ['#12734B', '#DC6F67', '#5590EC', '#AD8024']
+export const statusColor = (k: string): string => {
+  const i = (STATUS_KEYS as readonly string[]).indexOf(k)
+  return i < 0 ? 'var(--dim)' : (dark() ? STATUS_DARK : STATUS_LIGHT)[i]!
+}
+/** Legend chips: a swatch plus the word, so identity is never colour alone. */
+export function StatusLegend({ keys, counts }: { keys: readonly string[]; counts?: Record<string, number> }) {
+  return (
+    <div className="legend-row">
+      {keys.filter((k) => !counts || counts[k]).map((k) => (
+        <span key={k} className="legend"><span className="swatch" style={{ background: statusColor(k) }} />{k}</span>))}
+    </div>
+  )
+}
 
 export type Point = [number, number]
 
@@ -72,30 +96,89 @@ export function TimeChart({ title, series, unit, height = 130 }: { title: string
   )
 }
 
-/** Counts by category, stacked by run outcome. Status colours, always with the legend. */
-export function StackedBars({ title, data, keys, height = 150, onPick }:
-  { title: string; data: { label: string; values: Record<string, number> }[]; keys: string[]; height?: number; onPick?: (label: string, key?: string) => void }) {
-  const max = Math.max(1, ...data.map((d) => keys.reduce((s, k) => s + (d.values[k] ?? 0), 0)))
-  const H = height, barH = 18, gap = 8
+/**
+ * Counts by category, stacked by run outcome. The legend sits on its own line — inline it competed
+ * with the title for width, wrapping "Runs by job type" over four lines and clipping "stopped".
+ *
+ * A single-category breakdown is not a chart, so the caller is expected to check cardinality; this
+ * renders nothing below two rows rather than drawing one lonely bar.
+ */
+export function StackedBars({ title, data, keys, height = 150, onPick, minRows = 2 }:
+  { title: string; data: { label: string; values: Record<string, number> }[]; keys: readonly string[]; height?: number; onPick?: (label: string, key?: string) => void; minRows?: number }) {
   const rows = data.slice(0, 12)
-  if (!rows.length) return null
+  if (rows.length < minRows) return null
+  const max = Math.max(1, ...data.map((d) => keys.reduce((s, k) => s + (d.values[k] ?? 0), 0)))
+  const totals = Object.fromEntries(keys.map((k) => [k, data.reduce((s, d) => s + (d.values[k] ?? 0), 0)]))
   return (
     <div className="chart">
-      <div className="row"><div className="chart-title">{title}</div><span className="fill" />
-        {keys.map((k) => <span key={k} className="legend"><span className="swatch" style={{ background: STATUS[k] ?? 'var(--dim)' }} />{k}</span>)}
+      <div className="chart-head">
+        <div className="chart-title">{title}</div>
+        <StatusLegend keys={keys} counts={totals} />
       </div>
-      <div className="bars" style={{ minHeight: Math.min(H, rows.length * (barH + gap)) }}>
+      <div className="bars" style={{ minHeight: Math.min(height, rows.length * 26) }}>
         {rows.map((d) => {
           const total = keys.reduce((s, k) => s + (d.values[k] ?? 0), 0)
           return (
-            <div key={d.label} className="bar-row" onClick={() => onPick?.(d.label)}>
+            <div key={d.label} className={'bar-row' + (onPick ? ' pick' : '')} onClick={() => onPick?.(d.label)}
+              title={onPick ? `Filter to ${d.label}` : undefined}>
               <span className="bar-label" title={d.label}>{d.label}</span>
               <span className="bar-track">
-                {keys.map((k) => { const v = d.values[k] ?? 0; return v ? <span key={k} className="bar-seg" title={`${d.label} · ${k}: ${v}`} style={{ width: `${(v / max) * 100}%`, background: STATUS[k] ?? 'var(--dim)' }} /> : null })}
+                {keys.map((k) => { const v = d.values[k] ?? 0; return v
+                  ? <span key={k} className="bar-seg" title={`${d.label} · ${k}: ${v}`} style={{ width: `${(v / max) * 100}%`, background: statusColor(k) }} />
+                  : null })}
               </span>
               <span className="bar-value fig">{total}</span>
             </div>)
         })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Runs over time: one column per bucket, stacked by outcome. This is the chart the monitoring page
+ * was missing — "runs by day" over a 24-hour window is a single bar, which tells you nothing about
+ * whether things are getting worse.
+ *
+ * Marks follow the spec: 2px surface gap between segments, 4px rounded top on the last one, the
+ * total labelled only where it fits rather than on every column.
+ */
+export function StackedColumns({ title, buckets, keys, height = 112 }:
+  { title: string; buckets: { label: string; values: Record<string, number> }[]; keys: readonly string[]; height?: number }) {
+  const [hover, setHover] = useState<number | null>(null)
+  if (!buckets.length) return null
+  const max = Math.max(1, ...buckets.map((b) => keys.reduce((s, k) => s + (b.values[k] ?? 0), 0)))
+  const totals = Object.fromEntries(keys.map((k) => [k, buckets.reduce((s, b) => s + (b.values[k] ?? 0), 0)]))
+  const on = hover != null ? buckets[hover] : null
+  // every other label once the columns get thin, so ticks never collide
+  const step = buckets.length > 16 ? Math.ceil(buckets.length / 8) : buckets.length > 8 ? 2 : 1
+  return (
+    <div className="chart">
+      <div className="chart-head">
+        <div className="chart-title">{title}</div>
+        <StatusLegend keys={keys} counts={totals} />
+      </div>
+      {on && (
+        <div className="chart-tip">
+          <b>{on.label}</b>
+          {keys.filter((k) => on.values[k]).map((k) => (
+            <span key={k} className="row" style={{ gap: 4 }}><span className="swatch" style={{ background: statusColor(k) }} />{on.values[k]}</span>))}
+        </div>)}
+      <div className="cols" style={{ height }} onMouseLeave={() => setHover(null)}>
+        {buckets.map((b, i) => {
+          const total = keys.reduce((s, k) => s + (b.values[k] ?? 0), 0)
+          return (
+            <div key={b.label + i} className={'col-slot' + (hover === i ? ' on' : '')} onMouseEnter={() => setHover(i)}>
+              <span className="col-total fig">{total || ''}</span>
+              <span className="col-stack" style={{ height: `${(total / max) * 100}%` }}>
+                {keys.map((k) => { const v = b.values[k] ?? 0; return v
+                  ? <span key={k} className="col-seg" style={{ flexGrow: v, background: statusColor(k) }} />
+                  : null })}
+              </span>
+            </div>) })}
+      </div>
+      <div className="cols ticks">
+        {buckets.map((b, i) => <span key={b.label + i} className="tick-label">{i % step === 0 ? b.label : ''}</span>)}
       </div>
     </div>
   )

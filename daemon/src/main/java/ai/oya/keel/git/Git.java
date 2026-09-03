@@ -43,6 +43,31 @@ public final class Git {
         }
     }
 
+    /**
+     * The uncommitted work in this lane as one unified diff.
+     *
+     * `git diff HEAD` misses files git has never seen, and the agent's first act on a new job is
+     * usually to create them — so untracked paths are added to a throwaway index first and the
+     * diff is taken against that. The person's own index is never touched.
+     */
+    public static String diff(Path dir, String path) {
+        Path index;
+        try { index = Files.createTempFile("keel-diff-", ""); Files.delete(index); }
+        catch (java.io.IOException e) { return ""; }
+        Map<String, String> env = new HashMap<>(Proc.GIT_ENV);
+        env.put("GIT_INDEX_FILE", index.toString());
+        try {
+            Proc.run(dir, 60, env, "git", "read-tree", "HEAD");
+            Proc.run(dir, 60, env, "git", "add", "-A", "--", ".");
+            List<String> cmd = new ArrayList<>(List.of("git", "diff", "--cached", "--no-color", "--no-ext-diff", "-M", "--unified=3", "HEAD"));
+            if (path != null && !path.isBlank()) { cmd.add("--"); cmd.add(path); }
+            Proc.Result r = Proc.run(dir, 60, env, cmd.toArray(new String[0]));
+            return r.ok() ? r.stdout() : "";
+        } finally {
+            try { Files.deleteIfExists(index); } catch (java.io.IOException ignored) { }
+        }
+    }
+
     /** Paths that differ between two trees, relative to the repo root. */
     public static List<String> changed(Path dir, String before, String after) {
         if (before == null || after == null || before.equals(after)) return List.of();

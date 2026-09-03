@@ -77,7 +77,7 @@ export function LocalData({ job }: { job: string }) {
           </div>
         </div>))}
       <div className="insp-section col" style={{ gap: 6 }}>
-        <label className="row" style={{ gap: 6, fontSize: 12 }}>
+        <label className="row" style={{ gap: 6, fontSize: 'var(--small)' }}>
           <input type="checkbox" checked={status.committed} onChange={(e) => void setCommitted(e.target.checked)} />
           Commit these fixtures
         </label>

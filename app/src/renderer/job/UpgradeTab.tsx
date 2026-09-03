@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useAccount } from '@/stores/glue'
 import { api, type Fault } from '@/api/client'
 import { Icon } from '@/shell/Icon'
 import { EmptyState, FaultState } from '@/shell/EmptyState'
@@ -11,12 +12,13 @@ const ICON: Record<string, string> = { error: 'bad', warn: 'warn', info: 'info',
 
 /** Keel's upgrade analysis: the migration rules applied to this job, and an agent turn that fixes them. */
 export function UpgradeTab({ job }: { job: string }) {
+  const account = useAccount()
   const [u, setU] = useState<UpgradeReply | null>(null)
   const [fault, setFault] = useState<Fault | null>(null)
   const send = useChat((s) => s.send)
   const setTab = useLanes((s) => s.setTab)
   const load = async () => { const r = await api.get<UpgradeReply>(`/api/jobs/${encodeURIComponent(job)}/upgrade`, 'the upgrade analysis'); if (r.ok) { setU(r.value); setFault(null) } else setFault(r.fault) }
-  useEffect(() => { void load() }, [job]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void load() }, [job, account]) // eslint-disable-line react-hooks/exhaustive-deps
   if (fault) return <FaultState fault={fault} retry={() => void load()} />
   if (!u) return <EmptyState title="Analysing…" />
   const ask = () => { send(job, 'author', u.prompt, undefined, 'acceptEdits'); setTab(job, 'authoring') }

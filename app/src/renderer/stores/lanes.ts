@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { useToast } from '@/shell/Toast'
 import { api } from '@/api/client'
 
-export type Tab = 'console' | 'authoring' | 'script' | 'details' | 'schedules' | 'dq' | 'upgrade'
+export type Tab = 'console' | 'authoring' | 'script' | 'details' | 'schedules' | 'upgrade' | 'changes'
 export type Lane = { id: string; title: string; tab: Tab; worktree?: string }
 
 type Lanes = {
@@ -18,7 +18,11 @@ type Lanes = {
 
 let projectKey = ''
 function load(key: string): { open: Lane[]; active: string } {
-  try { const v = localStorage.getItem('lanes:' + key); if (v) return JSON.parse(v) } catch { /* fresh */ }
+  try {
+    const v = localStorage.getItem('lanes:' + key)
+    // 'dq' was the Data quality tab; a lane saved on it would land on a section that no longer exists
+    if (v) { const p = JSON.parse(v) as { open: Lane[]; active: string }; p.open = p.open.map((l) => (l.tab as string) === 'dq' ? { ...l, tab: 'console' as Tab } : l); return p }
+  } catch { /* fresh */ }
   return { open: [], active: 'home' }
 }
 

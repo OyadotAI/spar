@@ -72,8 +72,8 @@ export function AwsAccess() {
         <div className="col" style={{ gap: 6, marginTop: 8 }}>
           <div className="row"><b>{policy.tier} policy</b><span className="fill" />
             <button className="quiet" onClick={() => void navigator.clipboard.writeText(policy.json)}><Icon name="copy" size={12} />Copy</button>
-            <button className="quiet" onClick={() => setPolicy(null)}><Icon name="x" size={12} /></button></div>
-          <pre className="mono" style={{ maxHeight: 260, overflow: 'auto', background: 'var(--bg-sunken)', padding: 10, borderRadius: 6, fontSize: 11.5 }}>{policy.json}</pre>
+            <button className="quiet" aria-label="Close the policy" onClick={() => setPolicy(null)}><Icon name="x" size={12} /></button></div>
+          <pre className="mono" style={{ maxHeight: 260, overflow: 'auto', background: 'var(--well)', padding: 10, borderRadius: 6, fontSize: 'var(--small)' }}>{policy.json}</pre>
         </div>)}
     </section>
   )

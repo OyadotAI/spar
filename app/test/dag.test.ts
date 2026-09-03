@@ -87,7 +87,7 @@ describe('schema', () => {
   it('every palette type has a schema and a template whose keys the schema knows', () => {
     for (const g of PALETTE) for (const t of g.types) {
       expect(SCHEMA[t], t).toBeDefined()
-      const keys = new Set(['Name', 'Inputs', 'OutputSchemas', ...SCHEMA[t]!.map((f) => f.key)])
+      const keys = new Set(['Name', 'Inputs', 'OutputSchemas', ...SCHEMA[t]!.flatMap((f) => [f.key, ...(f.alsoWrites ?? [])])])
       for (const k of Object.keys(template(t, 'x'))) expect(keys.has(k), `${t}.${k}`).toBe(true)
     }
   })

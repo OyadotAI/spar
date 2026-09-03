@@ -29,6 +29,16 @@ Three screens are the product: the **jobs page** (every Glue job, live run state
 - `PUT /api/jobs/{name}/dag` carries `rev`; a stale rev is a 409, never a silent overwrite.
 - `job.py` is generated from `dag.json`. Hand edits are lost by design; custom logic goes in
   `SparkSQL` / `CustomCode` nodes.
+- **Navigation is two levels.** The window tab strip, then one `shell/Sidebar` per lane. Inside a
+  pane, switching is a `shell/Seg` and nothing else — `app/test/dx.test.tsx` fails the build if a
+  third idiom comes back. The toolbar holds actions only, never navigation.
+- Every write to a live AWS account is confirmed through `shell/Confirm`. Deploy confirms inside
+  `useAuthoring.deploy`, so the button, `⇧⌘D` and the palette are all covered by one guard.
+- `shell/useSurfaceReason` is the "name the reason" ladder. Any AWS-backed pane calls it before it
+  renders a fault, so no-profile never reads as `400 Bad Request`.
+- Colours, spacing and type come from `theme.css`. `app/test/theme.test.ts` asserts every
+  text/background pair at >= 4.5:1 in both themes; `dx.test.tsx` rejects an undefined `var(--x)`,
+  an inline `fontSize:`, text under 11px, and an icon-only button with no `aria-label`.
 - Deploy pushes the DAG (console stays visual) **and** the tested `job.py` to `ScriptLocation`.
   A console Save regenerates the script; the deploy response says so every time.
 
@@ -47,8 +57,9 @@ daemon responses), never written from memory.
   the generated job.py + 8 scaffolded tests pass inside `public.ecr.aws/glue/aws-glue-libs:5` (~16s).
 - Agent: a real `claude -p` turn whose Bash call blocked on the curl hook, was answered through
   `/api/approve/answer`, ran, replied, and ended with a checkpoint commit and cost.
-- App: 15 vitest tests; `KEEL_SHOT=<png>[:ms]` photographs the window, `KEEL_PROJECT=<dir>` and
-  `KEEL_OPEN=<job>:<tab>` point a dev launch at a project and a lane (the screenshot rig).
+- App: 92 vitest tests; `KEEL_SHOT=<png>[:ms]` photographs the window, `KEEL_PROJECT=<dir>`,
+  `KEEL_OPEN=<job>:<tab>` and `KEEL_SIZE=<w>x<h>` point a dev launch at a project, a lane and a
+  window size (the screenshot rig).
 - Not yet exercised: anything that needs an AWS profile (this machine has none), Windows/Linux
   runs, `electron-builder` installers, the EventBridge push, Deploy against a real account.
 

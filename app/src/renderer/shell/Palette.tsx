@@ -33,7 +33,7 @@ export function Palette() {
       c.push({ id: 'tests', label: `Run tests for ${job}`, icon: 'tests', run: () => useAuthoring.getState().runTests(job) })
       c.push({ id: 'generate', label: `Generate code for ${job}`, icon: 'refresh', run: () => void useAuthoring.getState().generate(job) })
       c.push({ id: 'deploy', label: `Deploy ${job}`, icon: 'deploy', keys: '⇧⌘D', run: () => void useAuthoring.getState().deploy(job) })
-      for (const [t, label] of [['authoring', 'Visual'], ['script', 'Script'], ['details', 'Job details'], ['console', 'Runs'], ['dq', 'Data quality'], ['schedules', 'Schedules'], ['upgrade', 'Upgrade']] as const)
+      for (const [t, label] of [['authoring', 'Visual'], ['script', 'Script'], ['details', 'Job details'], ['console', 'Runs'], ['schedules', 'Schedules'], ['upgrade', 'Upgrade']] as const)
         c.push({ id: 'tab-' + t, label: `Go to ${label}`, icon: 'chevron', run: () => lanes.setTab(job, t) })
       c.push({ id: 'close', label: `Close ${job}`, icon: 'x', keys: '⌘W', run: () => lanes.close(job) })
     }
@@ -55,10 +55,10 @@ export function Palette() {
   const go = (c?: Command) => { if (!c) return; toggle(false); c.run() }
   return (
     <div className="sheet-backdrop" style={{ alignItems: 'flex-start', paddingTop: '14vh' }} onClick={() => toggle(false)}>
-      <div className="palette-sheet" onClick={(e) => e.stopPropagation()}>
+      <div className="palette-sheet" role="dialog" aria-modal="true" aria-label="Command palette" onClick={(e) => e.stopPropagation()}>
         <div className="row" style={{ padding: '10px 12px', borderBottom: '1px solid var(--line)' }}>
           <Icon name="search" size={15} style={{ color: 'var(--faint)' }} />
-          <input ref={box} className="fill" style={{ border: 'none', background: 'transparent', fontSize: 15 }} placeholder="Jobs and commands" value={q}
+          <input ref={box} className="fill" style={{ border: 'none', background: 'transparent', fontSize: 'var(--reading)' }} placeholder="Jobs and commands" aria-label="Search jobs and commands" value={q}
             onChange={(e) => { setQ(e.target.value); setI(0) }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') toggle(false)
@@ -74,7 +74,7 @@ export function Palette() {
               <Icon name={c.icon ?? 'chevron'} size={14} style={{ color: 'var(--dim)' }} />
               <span className="fill">{c.label}</span>
               {c.hint && <span className="faint small">{c.hint}</span>}
-              {c.keys && <span className="faint mono" style={{ fontSize: 11 }}>{c.keys}</span>}
+              {c.keys && <span className="faint mono" style={{ fontSize: 'var(--micro)' }}>{c.keys}</span>}
             </div>))}
         </div>
       </div>
