@@ -8,6 +8,7 @@
 
 [![Website](https://img.shields.io/badge/website-spardata.dev-blue?style=flat-square)](https://spardata.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=flat-square)](https://opensource.org/licenses/MIT)
+[![Free & Open Source](https://img.shields.io/badge/pricing-100%25%20Free%20Forever-success?style=flat-square)]()
 [![GitHub release](https://img.shields.io/github/v/release/OyadotAI/spar?style=flat-square&color=indigo)](https://github.com/OyadotAI/spar/releases)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-blueviolet?style=flat-square)]()
 [![Glue](https://img.shields.io/badge/AWS%20Glue-2.0%20%7C%203.0%20%7C%204.0%20%7C%205.0-orange?style=flat-square)]()
@@ -200,13 +201,21 @@ SparData is built with a high-performance local architecture:
 
 ---
 
-## 🤝 Community & Contributing
+## 🤝 100% Free, Open Source & Contributing
 
-Contributions, bug reports, and feature requests are welcome!
+**SparData is 100% free and will always be free.** There are no paid tiers, no telemetry paywalls, and no subscription markups.
 
-- 🌐 **Website**: [https://spardata.dev](https://spardata.dev)
-- 🐙 **GitHub Repository**: [https://github.com/OyadotAI/spar](https://github.com/OyadotAI/spar)
-- 🐛 **Issues**: [Report a bug](https://github.com/OyadotAI/spar/issues)
+We welcome contributions of all kinds from the data engineering community:
+- 💡 **New Glue Node Templates**: Add code generators and pytest scaffolds for additional Glue sources, transforms, and sinks in `ai.oya.keel.codegen`.
+- ⚡ **Local Engine Enhancements**: Improve local PySpark execution speed, catalog mocking, and Docker runtime shims.
+- 🐛 **Bug Reports & Feedback**: Submit issues and feature requests on [GitHub Issues](https://github.com/OyadotAI/spar/issues).
+- ⭐ **Star the Repo**: If SparData saves you AWS bills or testing time, [star the repository](https://github.com/OyadotAI/spar) to help other data engineers discover it!
+
+### How to Contribute
+1. Fork the repository on GitHub: `https://github.com/OyadotAI/spar`
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Ensure all tests pass (`make check`)
+4. Commit your changes and open a Pull Request!
 
 ---
 
@@ -220,4 +229,4 @@ Built by developers who love AWS Glue and Apache Spark, but wanted a fast, local
 
 ## 📄 License
 
-SparData is open-source software licensed under the [MIT License](LICENSE).
+SparData is free and open-source software licensed under the [MIT License](LICENSE).
