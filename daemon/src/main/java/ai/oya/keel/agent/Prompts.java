@@ -64,7 +64,7 @@ public class Prompts {
                     b.append("  ").append(e.getKey()).append(" = ").append(SECRET.matcher(e.getKey()).find() ? "••••" : e.getValue().asText()).append('\n');
                 }
             }
-            if (j.has("CodeGenConfigurationNodes")) b.append("This is a visual (Glue Studio) job with ").append(j.path("CodeGenConfigurationNodes").size()).append(" DAG nodes.\n");
+            if (j.has("CodeGenConfigurationNodes")) b.append("This is a visual AWS Glue job with ").append(j.path("CodeGenConfigurationNodes").size()).append(" DAG nodes.\n");
         } catch (RuntimeException e) {
             b.append("(the full job definition could not be read: ").append(e.getMessage()).append(")\n");
         }
@@ -104,14 +104,14 @@ public class Prompts {
 
     private void author(StringBuilder b, String job, Path cwd) {
         Path dir = cwd.resolve("jobs").resolve(job);
-        b.append("## Your role: authoring agent\nYou build and change this Glue Studio job as a visual DAG plus generated PySpark and unit tests. The person sees the DAG on a canvas beside you and edits it too.\n\n")
+        b.append("## Your role: authoring agent\nYou build and change this AWS Glue job as a visual DAG plus generated PySpark and unit tests. The person sees the DAG on a canvas beside you and edits it too.\n\n")
          .append("## The folder contract — `jobs/").append(job).append("/`\n")
          .append("- `job.json` — the Glue Job properties (Role, Command, GlueVersion, WorkerType, NumberOfWorkers, DefaultArguments, Timeout…) exactly as the Glue API shapes them, minus CodeGenConfigurationNodes.\n")
          .append("- `dag.json` — the `CodeGenConfigurationNodes` map, verbatim API shape: `{\"<nodeId>\": {\"<NodeType>\": {\"Name\": \"…\", \"Inputs\": [\"<nodeId>\"…], …type fields…}}}`. Exactly one type key per node. Ids unique (use `node-<8 chars>`). Every `Inputs` entry is an existing id. Sources have no `Inputs`. `Join` has exactly 2 inputs; most transforms and every target exactly 1. Add `OutputSchemas: [{\"Columns\":[{\"Name\",\"Type\"}]}]` on sources when you know the columns.\n")
          .append("- `layout.json` — `{\"<nodeId>\": {\"x\": n, \"y\": n}}`; add an entry for every node you add (sources left, targets right, ~260px per column, ~100px per row).\n")
-         .append("- `job.py` — GENERATED from dag.json by Keel. Never edit it by hand; anything custom goes into a `SparkSQL` or `CustomCode` node. It has one function per node, `def <snake_name>(glueContext, <inputs>…) -> DynamicFrame`, and a `main()`.\n")
-         .append("- `tests/` — pytest. `conftest.py` (a `glueContext` fixture and a `dyf(glueContext, rows)` helper), `test_<snake_name>.py` per node, `test_pipeline.py` for the whole flow, small CSV fixtures in `tests/fixtures/`. Keel scaffolds these once; you make them real.\n\n")
-         .append("## Node types Keel can generate code for (anything else: use SparkSQL or CustomCode)\n")
+         .append("- `job.py` — GENERATED from dag.json by SparData. Never edit it by hand; anything custom goes into a `SparkSQL` or `CustomCode` node. It has one function per node, `def <snake_name>(glueContext, <inputs>…) -> DynamicFrame`, and a `main()`.\n")
+         .append("- `tests/` — pytest. `conftest.py` (a `glueContext` fixture and a `dyf(glueContext, rows)` helper), `test_<snake_name>.py` per node, `test_pipeline.py` for the whole flow, small CSV fixtures in `tests/fixtures/`. SparData scaffolds these once; you make them real.\n\n")
+         .append("## Node types SparData can generate code for (anything else: use SparkSQL or CustomCode)\n")
          .append("Sources: `S3CsvSource{Paths[],Separator: comma|tab|pipe|semicolon|ctrla,QuoteChar: quote|quillemet|single_quote|disabled,WithHeader,Recurse,Escaper}`, `S3ParquetSource{Paths[],Compression,Recurse}`, `S3JsonSource{Paths[],JsonPath,Multiline,Recurse}`, `S3CatalogSource{Database,Table,PartitionPredicate}`, `CatalogSource{Database,Table}`.\n")
          .append("Transforms: `ApplyMapping{Mapping:[{ToKey,FromPath[],FromType,ToType,Dropped}]}`, `SelectFields{Paths[]}`, `DropFields{Paths[]}`, `RenameField{SourcePath[],TargetPath[]}`, `Filter{LogicalOperator: AND|OR, Filters:[{Operation: EQ|LT|GT|LTE|GTE|NE|REGEX|LIKE|ILIKE|IN|BETWEEN|CONTAINS|STARTS_WITH|ENDS_WITH|ZERO_LENGTH|NOT_NULL|NULL, Negated, Values:[{Type: COLUMNEXTRACTED|CONSTANT, Value:[\"…\"]}]}]}`, `Join{JoinType: equijoin|left|right|outer|leftsemi|leftanti, Columns:[{From:<inputId>,Keys:[[\"col\"]]},{From:<inputId>,Keys:[[\"col\"]]}]}`, `DropDuplicates{Columns:[[\"col\"]]}`, `DropNullFields{}`, `Aggregate{Groups:[[\"col\"]],Aggs:[{Column:[\"col\"],AggFunc: avg|count|countDistinct|first|last|kurtosis|max|min|skewness|stddev_samp|stddev_pop|sum|sumDistinct|var_samp|var_pop}]}`, `SparkSQL{SqlQuery,SqlAliases:[{From:<inputId>,Alias}]}`, `CustomCode{Code,ClassName}` (Python; the class takes `(glueContext, dfc)` and returns a DynamicFrameCollection), `Union{UnionType: ALL|DISTINCT}`.\n")
          .append("Targets: `S3DirectTarget{Path,Format: json|csv|avro|orc|parquet,Compression,PartitionKeys:[[\"col\"]]}`, `S3GlueParquetTarget{Path,Compression,PartitionKeys}`, `S3CatalogTarget{Database,Table,PartitionKeys}`.\n\n")
