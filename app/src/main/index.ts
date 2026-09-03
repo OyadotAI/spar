@@ -4,6 +4,10 @@ import { join } from 'node:path'
 import { Daemon } from './daemon'
 import { installMenu, setCanvasEnabled } from './menu'
 
+app.name = 'SparData'
+app.setName('SparData')
+process.title = 'SparData'
+
 // KEEL_USERDATA=<dir>: a separate profile (remembered tabs, project) for screenshots and tests.
 if (process.env.KEEL_USERDATA) app.setPath('userData', process.env.KEEL_USERDATA)
 

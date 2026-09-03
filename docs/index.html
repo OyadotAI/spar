@@ -495,50 +495,9 @@
             <div class="window-dot" style="background:#F59E0B;"></div>
             <div class="window-dot" style="background:#10B981;"></div>
           </div>
-          <div class="window-title">SparData — orders_daily_etl (Visual)</div>
+          <div class="window-title">SparData — Interactive Desktop ADE</div>
         </div>
-        <div class="window-body">
-          <div class="window-sidebar">
-            <div class="nav-item active">Visual DAG</div>
-            <div class="nav-item">Script (job.py)</div>
-            <div class="nav-item">Runs & Logs</div>
-            <div class="nav-item">Schedules</div>
-            <div class="nav-item">Job details</div>
-            <div class="nav-item">Diff & Changes</div>
-          </div>
-          <div class="window-center">
-            <div class="dag-node-grid">
-              <div class="node source">
-                <div class="node-title">orders_s3</div>
-                <div class="node-type">S3 / Parquet</div>
-              </div>
-              <div class="node-arrow">→</div>
-              <div class="node">
-                <div class="node-title">filter_active</div>
-                <div class="node-type">Filter</div>
-              </div>
-              <div class="node-arrow">→</div>
-              <div class="node target">
-                <div class="node-title">analytics_out</div>
-                <div class="node-type">Glue Catalog</div>
-              </div>
-            </div>
-            <div class="window-code">
-<span style="color:#60A5FA;">def</span> <span style="color:#FBBF24;">filter_active</span>(glueContext, df) -&gt; DynamicFrame:
-    <span style="color:#6B7280;"># Generated from dag.json</span>
-    <span style="color:#F472B6;">return</span> Filter.apply(frame=df, f=<span style="color:#F472B6;">lambda</span> row: row[<span style="color:#34D399;">"status"</span>] == <span style="color:#34D399;">"COMPLETED"</span>)
-            </div>
-          </div>
-          <div class="window-chat">
-            <div>
-              <div style="font-size:11px; font-weight:600; color:#9CA3AF; text-transform:uppercase; margin-bottom:12px;">Authoring Agent</div>
-              <div class="chat-bubble">
-                <b style="color:#60A5FA;">SparData:</b> I updated the filter predicate and scaffolded <code>test_filter_active.py</code> with 3 test cases. Local pytest passed in 1.4s.
-              </div>
-            </div>
-            <div class="chat-input">Describe a pipeline change… (⌘↵)</div>
-          </div>
-        </div>
+        <img src="assets/demo.gif" alt="SparData Desktop App Preview" style="width: 100%; display: block; border-radius: 0 0 12px 12px;" />
       </div>
     </section>
 

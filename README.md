@@ -14,6 +14,10 @@
 
 <br />
 
+<img src="docs/assets/demo.gif" alt="SparData Demo Preview" width="100%" />
+
+<br />
+
 ```
    ┌───────────────────────┐          ┌───────────────────────┐
    │    Visual DAG Canvas   │ ◄──────► │   Generated PySpark   │
@@ -53,7 +57,7 @@ Most AI coding tools charge metered API token markups or require enterprise API 
 
 ## 🚀 The SparData Solution
 
-**SparData** (`spardata.dev`) gives data engineers a dedicated local development environment for AWS Glue:
+**SparData** ([spardata.dev](https://spardata.dev)) gives data engineers a dedicated local development environment for AWS Glue:
 
 - 💻 **100% Local & Free Development**: Build DAGs, generate PySpark, and run unit tests against sample datasets inside AWS's official Glue 5 container (`public.ecr.aws/glue/aws-glue-libs:5`) in **under 2 seconds**.
 - 🔒 **No Web Console Needed**: Author, inspect, and test full visual DAGs locally on your machine without needing AWS IAM console access.
@@ -62,7 +66,37 @@ Most AI coding tools charge metered API token markups or require enterprise API 
 
 ---
 
-## ✨ Key Features
+## 📸 Screenshots & Highlights
+
+### 🎨 Visual DAG Authoring ↔ Generated PySpark
+Build your pipeline visually with full Glue node parity. SparData automatically generates clean, testable PySpark code with isolated functions per transform node.
+
+<img src="docs/assets/screenshot-visual.png" alt="Visual DAG Editor" width="100%" />
+
+---
+
+### 📝 PySpark Script View & Instant Diffs
+Review clean, formatted PySpark scripts generated from your visual DAG. Track every modification before committing or deploying.
+
+<img src="docs/assets/screenshot-script.png" alt="PySpark Script View" width="100%" />
+
+---
+
+### 🔍 Real-Time CloudWatch Run Triage & Logs
+Follow live CloudWatch log streams and diagnose failed DPU runs with automated root-cause detection for driver OOMs and schema mismatches.
+
+<img src="docs/assets/screenshot-console.png" alt="Run Console and CloudWatch Triage" width="100%" />
+
+---
+
+### 📊 Observability & Cost Monitoring
+Track execution duration, DPU-hour consumption, failure rates, and job history across your entire AWS account in one unified view.
+
+<img src="docs/assets/screenshot-monitoring.png" alt="Job Run Monitoring" width="100%" />
+
+---
+
+## ✨ Core Superpowers
 
 ### ⚡ 1. Local PySpark Simulation & Pytest in Seconds
 - Runs your pipeline locally inside AWS’s official container (`public.ecr.aws/glue/aws-glue-libs:5`).
