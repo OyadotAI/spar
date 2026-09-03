@@ -470,11 +470,11 @@
     <section class="hero">
       <div class="pill-badge">
         <span class="dot"></span>
-        <span>Local-first ADE for AWS Glue</span>
+        <span>Local-First ADE for AWS Glue · No Web Console Needed</span>
       </div>
       <h1>Build Glue ETL pipelines.<br/>Test locally. Zero cloud bills.</h1>
       <p>
-        SparData brings visual DAG authoring, generated PySpark, containerized local pytest, and built-in AI debugging straight to your desktop.
+        Most teams don't have AWS web console access. SparData lets you build visual DAGs, generate clean PySpark, run containerized pytest in seconds, and debug with your own Claude Code subscription — with zero added AI cost.
       </p>
       <div class="hero-actions">
         <a href="https://github.com/OyadotAI/spar/releases" class="btn btn-primary">
@@ -617,9 +617,24 @@
           </thead>
           <tbody>
             <tr>
+              <td><strong>Console Access Requirement</strong></td>
+              <td class="check-no">Requires IAM web console login</td>
+              <td class="check-yes">Zero console access needed (Local-first)</td>
+            </tr>
+            <tr>
               <td><strong>Local Testing</strong></td>
               <td class="check-no">None (Cloud only, bills per DPU)</td>
               <td class="check-yes">Instant pytest in official Glue 5 container</td>
+            </tr>
+            <tr>
+              <td><strong>Testing Cost</strong></td>
+              <td class="check-no">~$0.44+ per DPU-hour</td>
+              <td class="check-yes">$0.00 (Runs locally on sample data)</td>
+            </tr>
+            <tr>
+              <td><strong>AI Assistant Cost</strong></td>
+              <td class="check-no">Metered API keys / extra markups</td>
+              <td class="check-yes">$0.00 added (Uses your Claude Code subscription)</td>
             </tr>
             <tr>
               <td><strong>Visual + Code Sync</strong></td>
@@ -632,12 +647,7 @@
               <td class="check-yes">&lt;2 seconds local test iteration</td>
             </tr>
             <tr>
-              <td><strong>AI Assistance</strong></td>
-              <td class="check-no">Generic suggestions</td>
-              <td class="check-yes">Claude Code agent with local context & diffs</td>
-            </tr>
-            <tr>
-              <td><strong>Spark UI</strong></td>
+              <td><strong>Spark History UI</strong></td>
               <td class="check-no">Requires live session billing</td>
               <td class="check-yes">Free local Spark History Server</td>
             </tr>

@@ -4,7 +4,7 @@
 
 ### The Local-First Desktop Workbench for AWS Glue & PySpark
 
-**Visual DAG authoring · Instant local pytest in Glue 5 containers · Zero-API-key AI debugging · Free local Spark UI**
+**No AWS Console access needed · 100% Local development & testing · Zero added AI cost via Claude Code**
 
 [![Website](https://img.shields.io/badge/website-spardata.dev-blue?style=flat-square)](https://spardata.dev)
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -22,15 +22,15 @@
                │                                  │
                ▼                                  ▼
    ┌──────────────────────────────────────────────────────────┐
-   │          Instant Local Container Tests (pytest)          │
-   │         public.ecr.aws/glue/aws-glue-libs:5 (1.4s)       │
+   │       Instant Local Container Tests (pytest · 1.4s)      │
+   │        No AWS bills · No cloud provisioning wait         │
    └───────────────────────────┬──────────────────────────────┘
                                │
             ┌──────────────────┴──────────────────┐
             ▼                                     ▼
 ┌───────────────────────┐             ┌───────────────────────┐
-│  AI Debugging Agent   │             │   Free Local Spark UI │
-│ Powered by Claude CLI │             │  Zero S3 setup needed │
+│ Zero-Cost AI Agent    │             │   Free Local Spark UI │
+│ Uses your Claude Code │             │  Zero S3 setup needed │
 └───────────────────────┘             └───────────────────────┘
 ```
 
@@ -38,22 +38,27 @@
 
 ---
 
-## 🛑 The Problem with Developing AWS Glue Jobs
+## 🛑 Why Building AWS Glue Jobs in the Cloud is Broken
 
-Every data engineer knows the pain of building Glue ETL pipelines in the cloud:
+### 1. Most Engineers Don't Have AWS Console Access
+In enterprise and security-conscious companies, developers rarely get IAM web console permissions to log into AWS Glue Studio. You are stuck writing blind scripts or fighting deployment pipelines without an interactive UI.
 
-1. **Slow Feedback Loop**: You change one line of code, trigger a cloud test run, wait 2–5 minutes for DPUs to provision, and pay $0.44/DPU-hour just to hit a `KeyError` or schema mismatch.
-2. **Locked Visual Editors**: In the AWS console, modifying code manually breaks the visual canvas permanently.
-3. **CloudWatch Log Labyrinths**: When a distributed job fails, finding the root-cause driver traceback buried across dozens of log streams takes 20 minutes.
-4. **No True Local Testing**: Testing Spark transformations locally with AWS Glue DynamicFrames requires tedious manual container and classpath wrangling.
+### 2. Development Shouldn't Cost Money or Waste 5 Minutes
+Testing a single line of PySpark or a schema change shouldn't require provisioning cloud DPUs, waiting 2–5 minutes for clusters to initialize, and paying AWS $0.44+/DPU-hour just to hit a trivial `KeyError` or type casting error.
+
+### 3. AI Tooling Shouldn't Add Extra Token Bills
+Most AI coding tools charge metered API token markups or require enterprise API keys. Developing data pipelines with AI should just use the tools you already pay for.
 
 ---
 
 ## 🚀 The SparData Solution
 
-**SparData** is a native, local-first ADE designed specifically for AWS Glue and PySpark data engineers.
+**SparData** (`spardata.dev`) gives data engineers a dedicated local development environment for AWS Glue:
 
-Build your DAG visually, inspect generated PySpark code, run unit tests against sample datasets inside AWS's official Glue 5 container in **under 2 seconds**, and deploy verified pipelines to AWS with a single click.
+- 💻 **100% Local & Free Development**: Build DAGs, generate PySpark, and run unit tests against sample datasets inside AWS's official Glue 5 container (`public.ecr.aws/glue/aws-glue-libs:5`) in **under 2 seconds**.
+- 🔒 **No Web Console Needed**: Author, inspect, and test full visual DAGs locally on your machine without needing AWS IAM console access.
+- 🤖 **Zero Added AI Cost**: Connects directly to your existing **Claude Code subscription** (`claude` CLI). No API keys, no extra token charges, and every filesystem/AWS write blocks on human-in-the-loop approval cards.
+- 🚀 **Deploy When Ready**: When your pytest suite is green, deploy verified DAGs and PySpark scripts to AWS with one click.
 
 ---
 
@@ -62,18 +67,18 @@ Build your DAG visually, inspect generated PySpark code, run unit tests against 
 ### ⚡ 1. Local PySpark Simulation & Pytest in Seconds
 - Runs your pipeline locally inside AWS’s official container (`public.ecr.aws/glue/aws-glue-libs:5`).
 - Scaffolds node-level tests and whole-pipeline pytest suites automatically.
-- Validates transforms, schema evolutions, and null-handling without touching AWS or incurring cloud bills.
+- Validates transforms, schema evolutions, and null-handling on sample data without touching AWS.
 
 ### 🎨 2. Bi-directional Visual DAG ↔ Clean PySpark
 - Full visual authoring canvas for Glue sources, transforms, and targets.
 - Cleanly generates modular, readable PySpark (`job.py`) with node-isolated functions: `def <node_name>(glueContext, <inputs>) -> DynamicFrame`.
-- 100% Glue Studio parity — your visual DAGs and deployed scripts stay in sync.
+- 100% Glue parity — your visual DAGs and deployed scripts stay in sync without locking the editor.
 
-### 🤖 3. Built-In AI Agent (Zero API Key Required)
+### 🤖 3. Built-In AI Agent (Zero Added AI Cost)
 - Drives your local `claude` (Claude Code) CLI directly.
-- **No API key exposure** — uses your existing Claude subscription safely.
+- **Uses your existing Claude subscription** — no separate API keys or surprise metered bills.
 - **Human-in-the-loop safeguards**: Risky tool calls (filesystem edits, AWS commands) block on in-app approval cards.
-- Autonomously builds pipelines, writes transform logic, and writes test fixtures.
+- Autonomously builds pipelines, writes transform logic, generates test fixtures, and diagnoses failures.
 
 ### 📊 4. Free Local Spark UI
 - Spin up Spark's official History Server on local engine event logs with zero S3 lag.
@@ -81,7 +86,7 @@ Build your DAG visually, inspect generated PySpark code, run unit tests against 
 - Also supports streaming and parsing historical S3 event logs from past cloud executions.
 
 ### 🔍 5. Automated CloudWatch Error Intelligence
-- Real-time CloudWatch log tailing and automated root-cause analysis for failed DPU runs.
+- Real-time CloudWatch log tailing and automated root-cause analysis for failed cloud runs.
 - Isolates driver OutOfMemory (OOM) exceptions, schema mismatches, and IAM permission faults in one click.
 
 ### 🛡️ 6. Isolated Git Branch & Worktree per Job
@@ -113,11 +118,12 @@ jobs/<job-name>/
 
 | Capability | AWS Glue Console | SparData (`spardata.dev`) |
 | :--- | :--- | :--- |
+| **Console Access Requirement** | Requires IAM web console login | **Zero console access needed** (Local-first) |
 | **Testing Speed** | 2–5 minutes per cloud run start | **&lt; 2 seconds** local container test |
 | **Cost per Test** | ~$0.44+ per DPU-hour | **$0.00** (Runs locally on sample data) |
+| **AI Cost** | Metered token pricing / API keys | **$0.00 added** (Uses your Claude Code subscription) |
 | **Visual + Code Sync** | Locked editor (editing code breaks canvas) | **Bi-directional** visual DAG + PySpark |
 | **Spark History UI** | Requires live session billing | **Instant free** local Spark UI |
-| **AI Assistance** | Generic chat | **Context-aware agent** with local diffs |
 | **Version Control** | Manual export / CodeCommit | **Automated branch & worktree** per job |
 | **Error Triage** | Search across CloudWatch streams | **Automated root cause isolation** |
 
